@@ -21,6 +21,7 @@ log = logging.getLogger(__name__)
 WATERMARK_KEY = "qbo_cdc_watermark"
 CDC_MAX_DAYS = 29          # QBO keeps 30 days; stay inside it
 OVERLAP = timedelta(hours=2)
+CHUNK = 500
 
 
 # ------------------------------------------------------------------ parsing
@@ -57,13 +58,8 @@ def txn_status(raw: dict) -> str:
 
 
 # ------------------------------------------------------------------ upserts
-def upsert_customer(conn, raw: dict) -> None:
-    cid = str(raw["Id"])
-    if raw.get("status") == "Deleted":
-        if conn.execute(select(qbo_customers.c.id).where(qbo_customers.c.id == cid)).first():
-            conn.execute(update(qbo_customers).where(qbo_customers.c.id == cid).values(deleted=True))
-        return
-    vals = dict(
+def customer_vals(raw: dict) -> dict:
+    return dict(
         display_name=raw.get("DisplayName"), company_name=raw.get("CompanyName"),
         given_name=raw.get("GivenName"), family_name=raw.get("FamilyName"),
         email_raw=(raw.get("PrimaryEmailAddr") or {}).get("Address"),
@@ -71,6 +67,35 @@ def upsert_customer(conn, raw: dict) -> None:
         active=bool(raw.get("Active", True)), deleted=False,
         last_updated=(raw.get("MetaData") or {}).get("LastUpdatedTime"), raw=raw,
     )
+
+
+def item_vals(raw: dict) -> dict:
+    return dict(name=raw.get("Name"), sku=raw.get("Sku"), description=raw.get("Description"),
+                type=raw.get("Type"), active=bool(raw.get("Active", True)), raw=raw)
+
+
+def txn_vals(txn_type: str, raw: dict) -> dict:
+    ship = raw.get("ShipAddr") or {}
+    return dict(
+        txn_type=txn_type, qbo_id=str(raw["Id"]),
+        customer_id=str((raw.get("CustomerRef") or {}).get("value") or ""),
+        doc_number=raw.get("DocNumber"),
+        txn_date=parse_date(raw.get("TxnDate")), ship_date=parse_date(raw.get("ShipDate")),
+        tracking_num=raw.get("TrackingNum"), ship_country=(ship.get("Country") or None),
+        total_amt=float(raw.get("TotalAmt") or 0),
+        bill_email=(raw.get("BillEmail") or {}).get("Address"),
+        private_note=raw.get("PrivateNote"), status=txn_status(raw),
+        last_updated=(raw.get("MetaData") or {}).get("LastUpdatedTime"), raw=raw, synced_at=utcnow(),
+    )
+
+
+def upsert_customer(conn, raw: dict) -> None:
+    cid = str(raw["Id"])
+    if raw.get("status") == "Deleted":
+        if conn.execute(select(qbo_customers.c.id).where(qbo_customers.c.id == cid)).first():
+            conn.execute(update(qbo_customers).where(qbo_customers.c.id == cid).values(deleted=True))
+        return
+    vals = customer_vals(raw)
     if conn.execute(select(qbo_customers.c.id).where(qbo_customers.c.id == cid)).first():
         conn.execute(update(qbo_customers).where(qbo_customers.c.id == cid).values(**vals))
     else:
@@ -81,8 +106,7 @@ def upsert_item(conn, raw: dict) -> None:
     iid = str(raw["Id"])
     if raw.get("status") == "Deleted":
         return
-    vals = dict(name=raw.get("Name"), sku=raw.get("Sku"), description=raw.get("Description"),
-                type=raw.get("Type"), active=bool(raw.get("Active", True)), raw=raw)
+    vals = item_vals(raw)
     if conn.execute(select(qbo_items.c.id).where(qbo_items.c.id == iid)).first():
         conn.execute(update(qbo_items).where(qbo_items.c.id == iid).values(**vals))
     else:
@@ -97,18 +121,7 @@ def upsert_txn(conn, txn_type: str, raw: dict) -> None:
         if exists:
             conn.execute(update(qbo_txns).where(qbo_txns.c.pk == pk).values(status="deleted", synced_at=utcnow()))
         return
-    ship = raw.get("ShipAddr") or {}
-    vals = dict(
-        txn_type=txn_type, qbo_id=str(raw["Id"]),
-        customer_id=str((raw.get("CustomerRef") or {}).get("value") or ""),
-        doc_number=raw.get("DocNumber"),
-        txn_date=parse_date(raw.get("TxnDate")), ship_date=parse_date(raw.get("ShipDate")),
-        tracking_num=raw.get("TrackingNum"), ship_country=(ship.get("Country") or None),
-        total_amt=float(raw.get("TotalAmt") or 0),
-        bill_email=(raw.get("BillEmail") or {}).get("Address"),
-        private_note=raw.get("PrivateNote"), status=status,
-        last_updated=(raw.get("MetaData") or {}).get("LastUpdatedTime"), raw=raw, synced_at=utcnow(),
-    )
+    vals = txn_vals(txn_type, raw)
     if exists:
         conn.execute(update(qbo_txns).where(qbo_txns.c.pk == pk).values(**vals))
     else:
@@ -140,28 +153,59 @@ class Syncer:
         return stats
 
     def full_sync(self) -> dict:
+        """Batched: replace-in-chunks so a full history load is a few hundred round trips, not tens of thousands."""
         stats = {"customers": 0, "items": 0, "txns": 0, "marked_deleted": 0}
         seen: dict[str, set[str]] = {e: set() for e in SALES_ENTITIES}
+
+        def flush(table, key_col, rows: list[dict], conn):
+            if not rows:
+                return
+            keys = [r[key_col.name] for r in rows]
+            conn.execute(delete(table).where(key_col.in_(keys)))
+            conn.execute(insert(table), rows)
+
+        customers = [{"id": str(r["Id"]), **customer_vals(r)} for r in self.src.query_all("Customer", "Active IN (true, false)")]
+        items = [{"id": str(r["Id"]), **item_vals(r)} for r in self.src.query_all("Item", "Active IN (true, false)")]
         with self.db.engine.begin() as c:
-            for row in self.src.query_all("Customer", "Active IN (true, false)"):
-                upsert_customer(c, row); stats["customers"] += 1
-            for row in self.src.query_all("Item", "Active IN (true, false)"):
-                upsert_item(c, row); stats["items"] += 1
-            for ent in SALES_ENTITIES:
-                for row in self.src.query_all(ent, f"TxnDate >= '{self.history_start}'"):
-                    upsert_txn(c, ent, row); stats["txns"] += 1
-                    seen[ent].add(str(row["Id"]))
+            for i in range(0, len(customers), CHUNK):
+                flush(qbo_customers, qbo_customers.c.id, customers[i:i + CHUNK], c)
+            for i in range(0, len(items), CHUNK):
+                flush(qbo_items, qbo_items.c.id, items[i:i + CHUNK], c)
+        stats["customers"], stats["items"] = len(customers), len(items)
+
+        for ent in SALES_ENTITIES:
+            batch, lines = [], []
+            for row in self.src.query_all(ent, f"TxnDate >= '{self.history_start}'"):
+                pk = f"{ent}:{row['Id']}"
+                seen[ent].add(str(row["Id"]))
+                batch.append({"pk": pk, **txn_vals(ent, row)})
+                lines.extend({"txn_pk": pk, **ln} for ln in parse_lines(row.get("Line", []) or []))
+                if len(batch) >= CHUNK:
+                    self._flush_txns(batch, lines); stats["txns"] += len(batch); batch, lines = [], []
+            if batch:
+                self._flush_txns(batch, lines); stats["txns"] += len(batch)
+
+        with self.db.engine.begin() as c:
             # anything we hold that QBO no longer returns was deleted (or merged away)
             for ent in SALES_ENTITIES:
                 local = c.execute(select(qbo_txns.c.pk, qbo_txns.c.qbo_id).where(
                     (qbo_txns.c.txn_type == ent) & (qbo_txns.c.status != "deleted")
                     & (qbo_txns.c.txn_date >= parse_date(self.history_start)))).all()
-                for pk, qid in local:
-                    if qid not in seen[ent]:
-                        c.execute(update(qbo_txns).where(qbo_txns.c.pk == pk).values(status="deleted"))
-                        stats["marked_deleted"] += 1
+                gone = [pk for pk, qid in local if qid not in seen[ent]]
+                for i in range(0, len(gone), CHUNK):
+                    c.execute(update(qbo_txns).where(qbo_txns.c.pk.in_(gone[i:i + CHUNK])).values(status="deleted"))
+                stats["marked_deleted"] += len(gone)
         log.info("QBO full sync: %s", stats)
         return stats
+
+    def _flush_txns(self, batch: list[dict], lines: list[dict]) -> None:
+        pks = [b["pk"] for b in batch]
+        with self.db.engine.begin() as c:
+            c.execute(delete(qbo_txn_lines).where(qbo_txn_lines.c.txn_pk.in_(pks)))
+            c.execute(delete(qbo_txns).where(qbo_txns.c.pk.in_(pks)))
+            c.execute(insert(qbo_txns), batch)
+            if lines:
+                c.execute(insert(qbo_txn_lines), lines)
 
     def incremental(self, since: datetime) -> dict:
         changed = self.src.cdc(CDC_ENTITIES, since)
