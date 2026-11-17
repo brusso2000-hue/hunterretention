@@ -38,6 +38,8 @@ jobs:
           QBO_CLIENT_ID: ${{ secrets.QBO_CLIENT_ID }}
           QBO_CLIENT_SECRET: ${{ secrets.QBO_CLIENT_SECRET }}
           QBO_REALM_ID: ${{ secrets.QBO_REALM_ID }}
+          # One-time bootstrap: used only while the database has no token yet; after that the rotating token lives in Postgres.
+          QBO_REFRESH_TOKEN: ${{ secrets.QBO_REFRESH_TOKEN }}
           APOLLO_API_KEY: ${{ secrets.APOLLO_API_KEY }}
           ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
           HP_TOKEN_KEY: ${{ secrets.HP_TOKEN_KEY }}
