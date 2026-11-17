@@ -1,0 +1,86 @@
+# Program settings. Secrets are NOT here; they come from environment variables (see docs/SETUP.md).
+
+# dry_run : sync + plan + render, log what would be sent. No Apollo writes. (default)
+# sandbox : real Apollo enrollments, but every email goes to sandbox.redirect_to, subject tagged [TEST ...]
+# live    : real customer emails. ALSO requires HP_ALLOW_LIVE_SEND=true AND `approve-production`.
+mode: dry_run
+
+timezone: America/New_York
+
+# Only customers whose FIRST qualifying purchase is on/after this date enter the program.
+# Set to the go-live date. Setting it earlier "catches up" recent buyers: touches whose
+# window has already closed are skipped automatically, later ones still send.
+program_start_date: 2026-12-01
+
+# Backfill depth for purchase history (first-time detection checks everything since this date).
+history_start_date: 2000-01-01
+
+qbo:
+  environment: production      # production | sandbox
+  minor_version: 75
+
+apollo:
+  # hunter@hunterproducts.com (Microsoft Exchange) - existing customers get the main domain, not the cold .co domain
+  send_from_email_account_id: "69b4578fbbbdb70011b7044a"
+  # One-step sequences, step 1 = automatic email, wait 0 days, subject {{hp_subject}}, body {{hp_body}}.
+  # Fill in after creating them (docs/SETUP.md, step 4).
+  sequences:
+    e1: ""
+    e2: ""
+    e3: ""
+    e4: ""
+  contact_label: "HP Lifecycle"
+  # text: hp_body is a multi-line text field inserted as-is. html: paragraphs converted to <p>/<br>.
+  # Confirm which renders correctly with your first sandbox send (docs/SETUP.md step 6).
+  body_format: text
+  # Never enroll someone currently active in another sequence (Tier A Reactivation, TTM, Technoprobe, ...).
+  skip_if_active_in_other_sequences: true
+
+sender:
+  name: "Brandon"
+  title: "Vice President"
+  company: "Hunter Products, Inc."
+  phone: "(908) 526-8440"
+
+identity:
+  # A "new" QBO customer whose company email domain already bought from us:
+  #   review   -> hold for a human decision (default)
+  #   existing -> treat as an existing account, no first-time sequence
+  #   ignore   -> treat as a new customer
+  domain_match_policy: review
+  # Billing/AP inboxes. If these are the only address we have, hold for review instead of emailing AP.
+  role_email_policy: review      # review | send
+  # Regexes (full match) on the part before "@". Real QBO examples: aesculap_ap@, apforestgrove@.
+  # Kept to finance/system inboxes: at small shops purchasing@ / info@ / orders@ are often the actual
+  # buyer, so they are NOT listed by default.
+  role_address_patterns: ["(.*[._-])?a[._-]?p([._-].*)?", "ap(forest|grove|plant|site|dept|team|inbox|mail|[0-9])[a-z0-9]*",
+                          ".*accounts?[._-]?payable.*", ".*payables?.*", ".*invoic(e|es|ing).*", ".*billing.*",
+                          ".*accounting.*", ".*accounts?[._-]?receivable.*", "(.*[._-])?ar([._-].*)?",
+                          ".*receiving.*", ".*finance.*", "no[._-]?reply.*", "do[._-]?not[._-]?reply.*"]
+  freemail_domains: [gmail.com, yahoo.com, hotmail.com, outlook.com, aol.com, icloud.com, live.com, msn.com,
+                     comcast.net, verizon.net, att.net, me.com, protonmail.com, ymail.com, qq.com, 163.com]
+
+eligibility:
+  min_order_amount: 0.01                 # $0 sample shipments are not purchases
+  ignored_products_count_as_history: true
+  refund_window_days: 120
+  full_refund_threshold: 0.9             # credit >= 90% of the order within the window = refunded/canceled
+  min_days_between_emails: 7
+  max_emails_per_30_days: 2
+  pause_on_reply: true                   # a reply hands the customer to a human; remaining touches stop
+  require_engagement_sync: true          # if Apollo status can't be read, don't send blind
+
+dispatch:
+  max_attempts: 3
+  max_sends_per_run: 25
+  engagement_lookback_days: 150
+  recall_window_hours: 72
+
+sandbox:
+  redirect_to: "hunter@hunterproducts.com"
+  max_per_run: 5
+
+analytics:
+  # % of new customers randomly held out (no emails) so revenue lift can be measured honestly.
+  # Set to 0 to email everyone.
+  holdout_pct: 10

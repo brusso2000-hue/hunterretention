@@ -1,0 +1,67 @@
+name: hunter-retention-daily
+
+on:
+  schedule:
+    # 11:41 UTC = 6:41am ET in winter / 7:41am ET in summer. Apollo then sends inside its own schedule window.
+    - cron: "41 11 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Override mode for this run (leave blank to use settings.yaml)"
+        required: false
+        type: choice
+        options: ["", "dry_run", "sandbox", "live"]
+      full_sync:
+        description: "Force a full QuickBooks re-sync"
+        required: false
+        type: boolean
+
+# Never let two runs overlap (idempotency relies on one writer at a time).
+concurrency:
+  group: hunter-retention
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install ".[postgres,crypto]"
+      - name: Daily run
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          QBO_CLIENT_ID: ${{ secrets.QBO_CLIENT_ID }}
+          QBO_CLIENT_SECRET: ${{ secrets.QBO_CLIENT_SECRET }}
+          QBO_REALM_ID: ${{ secrets.QBO_REALM_ID }}
+          APOLLO_API_KEY: ${{ secrets.APOLLO_API_KEY }}
+          ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
+          HP_TOKEN_KEY: ${{ secrets.HP_TOKEN_KEY }}
+          # Second key for live email. Set the repository VARIABLE HP_ALLOW_LIVE_SEND=true only at go-live.
+          HP_ALLOW_LIVE_SEND: ${{ vars.HP_ALLOW_LIVE_SEND }}
+          HP_MODE: ${{ inputs.mode }}
+        run: |
+          ARGS=""
+          if [ "${{ inputs.full_sync }}" = "true" ]; then ARGS="--full-sync"; fi
+          hunter-retention run $ARGS
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: retention-report-${{ github.run_number }}
+          path: reports/
+          retention-days: 30
+
+  tests:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ".[dev]" && pytest -q

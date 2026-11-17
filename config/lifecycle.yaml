@@ -1,0 +1,80 @@
+# Segments, timing and suppression rules.
+
+# When a first order spans several product lines, the first segment in this list wins.
+# Equipment buyers get equipment onboarding; their pens/parts inform the parts list only.
+segment_priority: [B, C, A, D]
+
+family_segment:
+  micro_metallizer: A
+  carbitron: B
+  micro_jet: C
+
+# Which roles put a buyer into their family's own segment. Anything else (e.g. electrodes only,
+# nozzles/media only, degreaser or cables only) goes to D: consumables/parts-only.
+segment_roles:
+  micro_metallizer: [equipment, consumable]   # pens are the product for most Micro-Metallizer buyers
+  carbitron: [equipment]
+  micro_jet: [equipment]
+
+# Invoices within this many days of the first one are treated as the same first purchase.
+first_order_merge_days: 2
+
+# Delivery estimate. QuickBooks has ship date + tracking number but no delivery date,
+# so Email 1 never claims the order arrived.
+anchor:
+  home_country: US
+  fulfillment_lag_days: 0        # same-day shipping; used only when ShipDate is blank
+  transit_days_domestic: 4
+  transit_days_international: 10
+
+replenishment:
+  min_day: 60
+  max_day: 90
+  default_days: {A: 75, B: 90, C: 75, D: 75}
+  # Use observed history: median days from first purchase to first same-family consumable reorder,
+  # across all past customers. Needs at least min_cohort_size examples, then clamped to min/max.
+  use_cohort_history: true
+  min_cohort_size: 8
+  # Bigger first orders last longer: scale by quantity / reference_qty (capped), then clamp.
+  quantity_scaling:
+    enabled: true
+    reference_qty: {A: 2, B: 5, C: 1, D: 5}
+    max_multiplier: 1.5
+
+reorder:
+  # true: a gold buyer reordering nickel pens does NOT count as replenishing.
+  replenishment_requires_same_application: false
+
+# Reorder types (computed for every later order):
+#   any_purchase              any qualifying later order
+#   same_family               includes products from the track's product line
+#   consumable_replenishment  includes consumables from the track's product line
+#   new_equipment             includes any system/kit/power supply
+#
+# offset_days are counted from the estimated delivery date.
+# window_days: if a touch can't go out by due + window (outage, held record), it is skipped, never sent late.
+# recheck_live: pull this customer's transactions straight from QuickBooks immediately before sending.
+tracks:
+  A:   # Micro-Metallizer
+    touches:
+      - {key: e1, offset_days: 4,   window_days: 7,  suppress_on: []}
+      - {key: e2, offset_days: 30,  window_days: 15, suppress_on: []}
+      - {key: e3, offset: replenishment, window_days: 21, suppress_on: [consumable_replenishment], recheck_live: true}
+      - {key: e4, offset_days: 120, window_days: 30, suppress_on: [any_purchase], recheck_live: true}
+  B:   # Carbitron 300
+    touches:
+      - {key: e1, offset_days: 4,   window_days: 7,  suppress_on: []}
+      - {key: e2, offset_days: 30,  window_days: 15, suppress_on: []}
+      - {key: e3, offset: replenishment, window_days: 21, suppress_on: [consumable_replenishment], recheck_live: true}
+      - {key: e4, offset_days: 120, window_days: 30, suppress_on: [any_purchase], recheck_live: true}
+  C:   # Micro-Jet 200
+    touches:
+      - {key: e1, offset_days: 4,   window_days: 7,  suppress_on: []}
+      - {key: e2, offset_days: 30,  window_days: 15, suppress_on: []}
+      - {key: e3, offset: replenishment, window_days: 21, suppress_on: [consumable_replenishment], recheck_live: true}
+      - {key: e4, offset_days: 120, window_days: 30, suppress_on: [any_purchase], recheck_live: true}
+  D:   # Consumables / parts only (no new system in the order)
+    touches:
+      - {key: e1, offset_days: 4,   window_days: 7,  suppress_on: []}
+      - {key: e3, offset: replenishment, window_days: 21, suppress_on: [same_family], recheck_live: true}
+      - {key: e4, offset_days: 120, window_days: 30, suppress_on: [any_purchase], recheck_live: true}

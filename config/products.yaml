@@ -1,0 +1,130 @@
+# Product classification table.
+#
+# Built from the live QuickBooks Product/Service list (123 items, pulled 2026-11-17).
+# Match order for every invoice/sales-receipt line:
+#   1. qbo_item_id   (most stable; add these once you see them in `hunter-retention audit-items`)
+#   2. name          exact QBO item Name (case/space-insensitive, "(deleted)" suffix ignored)
+#   3. name_regex    regex on the normalized item name
+# Anything that matches nothing is UNCLASSIFIED: never emailed, sent to the review queue.
+#
+# family: micro_metallizer | carbitron | micro_jet
+# role:   equipment   core system / kit / power supply (drives onboarding)
+#         consumable  used up and reordered (pens, electrodes, nozzles, media)
+#         prep        surface-prep pens
+#         accessory   cables, hand pieces, fittings, spare parts
+# application (Micro-Metallizer only): gold | nickel | tin | silver | copper | other
+# url: verified page on hunterproducts.com (pulled 2026-11-17). Leave blank if no page exists.
+
+families:
+  micro_metallizer:
+    label: "Micro-Metallizer"
+    system_url: "https://hunterproducts.com/systems/micro-metallizer/"
+    store_url: "https://hunterproducts.com/store/?line=micro-metallizer"
+  carbitron:
+    label: "Carbitron 300"
+    system_url: "https://hunterproducts.com/systems/carbitron-300/"
+    store_url: "https://hunterproducts.com/store/?type=consumable"
+  micro_jet:
+    label: "Micro-Jet 200"
+    system_url: "https://hunterproducts.com/systems/micro-jet-200/"
+    store_url: "https://hunterproducts.com/store/?type=media"
+
+# Lines that are not products. Ignored for classification; an order made only of these is not a purchase.
+non_product:
+  names: [SHIPPING, SHIIPPING, SHIPPING1, DISCOUNT, DISCOUNTS, BANK CHARGES, BANK FEES, RM TARIFFS,
+          SURCHARGE, TARIFF SURCHARGE, LATE FEE, CREDIT, SERVICES, DUTIES AND TAXES,
+          "PMNTDISCOUNT_402 - DISCOUNTS", "PMNTDISCOUNT_713 - BANK CHARGES"]
+  name_regex: ["^NJ SALES TAX.*", "^CA\\b.*", "^OUT OF STATE$", "^SALES TAX.*", "^-$"]
+
+# Real products that are outside this program (legacy lines). Not emailed, not flagged.
+ignored:
+  names: ["M.5", "M.7", "M.9", "M8A", "M8B", "M.8A", "MT6004", "MT6004 - 4", "MT6008", "MT6009", "AC-12",
+          "PL-1003-1", "PL-1003A", "PL1002", "PL1007"]
+
+items:
+  # ---------------------------------------------------------------- Micro-Metallizer kits & power
+  - {name: "PL-1000C",   family: micro_metallizer, role: equipment, display: "Contact Repair Kit", url: "https://hunterproducts.com/products/contact-repair-kit/"}
+  - {name: "PL-1000CHD", family: micro_metallizer, role: equipment, display: "Contact Repair Kit (Heavy Duty)", url: "https://hunterproducts.com/products/contact-repair-kit-heavy-duty/"}
+  - {name: "PL-1000K",   family: micro_metallizer, role: equipment, display: "Deluxe Plating Kit", url: "https://hunterproducts.com/products/deluxe-plating-kit/"}
+  - {name: "PL-1000HD",  family: micro_metallizer, role: equipment, display: "Deluxe Plating Kit (Heavy Duty)", url: "https://hunterproducts.com/products/deluxe-plating-kit-heavy-duty/"}
+  - {name: "PL-1000",    family: micro_metallizer, role: equipment, display: "Micro-Metallizer Power Supply (220V)"}
+  - {name_regex: "^PL-1000\\s+110\\s*VOLT$", family: micro_metallizer, role: equipment, display: "Micro-Metallizer Power Supply (110V)"}
+  # set = PL-1002 degreaser + PL-1007 black nickel + PL-1016 24K gold heavy
+  - {name: "PL-1002,PL-1007,PL-1016", family: micro_metallizer, role: consumable, applications: [gold, nickel], display: "Plating Pen Set (degreaser, black nickel, 24K gold heavy)"}
+
+  # ---------------------------------------------------------------- Micro-Metallizer pens (the consumable)
+  - {name: "PL-1003",  family: micro_metallizer, role: consumable, application: gold,   display: "24K Gold Plating Pen", url: "https://hunterproducts.com/products/gold-24k-plating-pen/"}
+  - {name: "PL1003",   family: micro_metallizer, role: consumable, application: gold,   display: "24K Gold Plating Pen", url: "https://hunterproducts.com/products/gold-24k-plating-pen/"}
+  - {name: "HUNPL-1003", family: micro_metallizer, role: consumable, application: gold, display: "24K Gold Plating Pen", url: "https://hunterproducts.com/products/gold-24k-plating-pen/"}
+  - {name: "PL-1016",  family: micro_metallizer, role: consumable, application: gold,   display: "24K Gold Heavy Duty Plating Pen", url: "https://hunterproducts.com/products/gold-24k-heavy-duty-plating-pen/"}
+  - {name: "PL-1004",  family: micro_metallizer, role: consumable, application: gold,   display: "18K Gold Plating Pen", url: "https://hunterproducts.com/products/gold-18k-plating-pen/"}
+  - {name: "PL-1017",  family: micro_metallizer, role: consumable, application: gold,   display: "18K Gold Heavy Duty Plating Pen", url: "https://hunterproducts.com/products/gold-18k-heavy-duty-plating-pen/"}
+  - {name: "PL-1005",  family: micro_metallizer, role: consumable, application: gold,   display: "14K Gold Plating Pen", url: "https://hunterproducts.com/products/gold-14k-plating-pen/"}
+  - {name: "PL-1006",  family: micro_metallizer, role: consumable, application: nickel, display: "Nickel Plating Pen", url: "https://hunterproducts.com/products/nickel-plating-pen/"}
+  - {name: "HUNPL-1006", family: micro_metallizer, role: consumable, application: nickel, display: "Nickel Plating Pen", url: "https://hunterproducts.com/products/nickel-plating-pen/"}
+  - {name: "PL-1020",  family: micro_metallizer, role: consumable, application: nickel, display: "Nickel Heavy Duty Plating Pen", url: "https://hunterproducts.com/products/nickel-heavy-duty-plating-pen/"}
+  - {name: "HUNPL-1020", family: micro_metallizer, role: consumable, application: nickel, display: "Nickel Heavy Duty Plating Pen", url: "https://hunterproducts.com/products/nickel-heavy-duty-plating-pen/"}
+  - {name: "PL-1007",  family: micro_metallizer, role: consumable, application: nickel, display: "Black Nickel Plating Pen", url: "https://hunterproducts.com/products/black-nickel-plating-pen/"}
+  - {name: "HUNPL-1007", family: micro_metallizer, role: consumable, application: nickel, display: "Black Nickel Plating Pen", url: "https://hunterproducts.com/products/black-nickel-plating-pen/"}
+  - {name: "PL-1012",  family: micro_metallizer, role: consumable, application: tin,    display: "Tin Plating Pen", url: "https://hunterproducts.com/products/tin-plating-pen/"}
+  - {name: "HUNPL-1012", family: micro_metallizer, role: consumable, application: tin,  display: "Tin Plating Pen", url: "https://hunterproducts.com/products/tin-plating-pen/"}
+  - {name: "PL-1008",  family: micro_metallizer, role: consumable, application: silver, display: "Silver Plating Pen", url: "https://hunterproducts.com/products/silver-plating-pen/"}
+  - {name: "HUNPL-1008", family: micro_metallizer, role: consumable, application: silver, display: "Silver Plating Pen", url: "https://hunterproducts.com/products/silver-plating-pen/"}
+  - {name: "HUNPL-1008-1", family: micro_metallizer, role: consumable, application: silver, display: "Silver Plating Pen", url: "https://hunterproducts.com/products/silver-plating-pen/"}
+  - {name: "PL-1018",  family: micro_metallizer, role: consumable, application: silver, display: "Silver Heavy Duty Plating Pen", url: "https://hunterproducts.com/products/silver-heavy-duty-plating-pen/"}
+  - {name: "HUNPL-1018", family: micro_metallizer, role: consumable, application: silver, display: "Silver Heavy Duty Plating Pen", url: "https://hunterproducts.com/products/silver-heavy-duty-plating-pen/"}
+  - {name: "PL-1010",  family: micro_metallizer, role: consumable, application: copper, display: "Copper Plating Pen", url: "https://hunterproducts.com/products/copper-plating-pen/"}
+  - {name: "HUN-PL-1010", family: micro_metallizer, role: consumable, application: copper, display: "Copper Plating Pen", url: "https://hunterproducts.com/products/copper-plating-pen/"}
+  - {name: "PL-1019",  family: micro_metallizer, role: consumable, application: copper, display: "Copper Heavy Duty Plating Pen", url: "https://hunterproducts.com/products/copper-heavy-duty-plating-pen/"}
+  - {name: "PL-1011",  family: micro_metallizer, role: consumable, application: other,  display: "Rhodium Plating Pen", url: "https://hunterproducts.com/products/rhodium-plating-pen/"}
+  - {name: "PL-1015",  family: micro_metallizer, role: consumable, application: other,  display: "Palladium Plating Pen", url: "https://hunterproducts.com/products/palladium-plating-pen/"}
+  - {name: "PL-1013",  family: micro_metallizer, role: consumable, application: other,  display: "Zinc Plating Pen", url: "https://hunterproducts.com/products/zinc-plating-pen/"}
+  - {name: "PL-1009",  family: micro_metallizer, role: consumable, application: other,  display: "Chrome Color Plating Pen", url: "https://hunterproducts.com/products/chrome-color-plating-pen/"}
+
+  # ---------------------------------------------------------------- Micro-Metallizer prep & accessories
+  - {name: "PL-1002",  family: micro_metallizer, role: prep, display: "Absorbent/Degreaser Pen", url: "https://hunterproducts.com/products/absorbent-degreaser-plating-pen/"}
+  - {name: "HUNPL-1002", family: micro_metallizer, role: prep, display: "Absorbent/Degreaser Pen", url: "https://hunterproducts.com/products/absorbent-degreaser-plating-pen/"}
+  - {name: "PL-1014",  family: micro_metallizer, role: prep, display: "Stainless Steel Degreaser Pen", url: "https://hunterproducts.com/products/stainless-steel-degreaser-pen/"}
+  - {name: "PL-1001",  family: micro_metallizer, role: accessory, display: "Connector Cables"}
+  - {name: "HUNPL-1001", family: micro_metallizer, role: accessory, display: "Connector Cables"}
+
+  # ---------------------------------------------------------------- Carbitron 300
+  - {name: "TS3037",          family: carbitron, role: equipment, display: "Carbitron 300 (220V)", url: "https://hunterproducts.com/products/carbitron-300-system/"}
+  - {name: "TS3037-110 VOLT", family: carbitron, role: equipment, display: "Carbitron 300 (110V)", url: "https://hunterproducts.com/products/carbitron-300-system/"}
+  - {name: "TS3038", family: carbitron, role: consumable, display: "Tungsten Carbide Electrode 1/8\" x 2-1/2\""}
+  - {name: "TS3039", family: carbitron, role: consumable, display: "Tungsten Carbide Electrode 1/16\" x 2-1/2\""}
+  - {name: "TS3040", family: carbitron, role: consumable, display: "Tungsten Carbide Electrode 1/32\" x 2-1/2\""}
+  - {name: "TS3044", family: carbitron, role: consumable, display: "Tungsten Carbide Electrode 7/32\" x 2\""}
+  - {name: "TS3041", family: carbitron, role: consumable, display: "Titanium Carbide Electrode 1/8\" x 2-1/8\""}
+  - {name: "TS3042", family: carbitron, role: accessory, display: "Vibrator Hand Piece"}
+  - {name: "TS3053", family: carbitron, role: accessory, display: "Vibrator Hand Piece with Power Cable"}
+  - {name: "TS3045", family: carbitron, role: accessory, display: "Power Cable (Red)"}
+  - {name: "TS3046", family: carbitron, role: accessory, display: "Ground Cable (Black)"}
+  # TS3050 "Power Supply" ($350) is deliberately NOT mapped: confirm which system it belongs to.
+
+  # ---------------------------------------------------------------- Micro-Jet 200
+  - {name: "AB2000", family: micro_jet, role: equipment, display: "Micro-Jet 200", url: "https://hunterproducts.com/systems/micro-jet-200/"}
+  - {name: "AB2005", family: micro_jet, role: equipment, display: "Model 1210 BCG Blast Cabinet"}
+  - {name: "AB2017", family: micro_jet, role: equipment, display: "Model 1400 BC Blast Cabinet"}
+  - {name: "AB2001", family: micro_jet, role: consumable, display: "Nozzle Assembly .020\""}
+  - {name: "AB2002", family: micro_jet, role: consumable, display: "Tungsten Carbide Nozzle Assembly .030\""}
+  - {name: "AB2003", family: micro_jet, role: consumable, display: "Tungsten Carbide Nozzle .020\""}
+  - {name: "AB2004", family: micro_jet, role: consumable, display: "Tungsten Carbide Nozzle"}
+  - {name: "AB2024", family: micro_jet, role: consumable, display: "Aluminum Oxide 220 (MGAO)"}
+  - {name: "AB2025", family: micro_jet, role: consumable, display: "Aluminum Oxide 5 lb (MGAO)"}
+  - {name: "AB2028", family: micro_jet, role: consumable, display: "Silicon Carbide Extra Fine 5 lb"}
+  - {name: "AB2029", family: micro_jet, role: consumable, display: "Silicon Carbide 320 Super Fine 5 lb"}
+  - {name: "AB3032", family: micro_jet, role: consumable, display: "Glass Beads MS/XL Super Fine 5 lb"}
+  - {name: "AB2032", family: micro_jet, role: consumable, display: "Glass Beads MS/XL Super Fine 5 lb"}
+  - {name: "#100 ALUIMINUM OXIIDE", family: micro_jet, role: consumable, display: "Blast Compound (#100 Aluminum Oxide)"}
+  - {name: "#100 ALIMINUM OXIIDE",  family: micro_jet, role: consumable, display: "#100 Aluminum Oxide"}
+  - {name_regex: "^AB20(0[6-9]|1[0-6]|1[89]|2[1-3]|34)$", family: micro_jet, role: accessory, display: "Micro-Jet spare part"}
+
+# Application labels used in copy
+applications:
+  gold: "gold"
+  nickel: "nickel"
+  tin: "tin"
+  silver: "silver"
+  copper: "copper"
+  other: "specialty metal"

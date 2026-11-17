@@ -1,0 +1,5 @@
+# Alternative to GitHub Actions: any small Linux box (e.g. a $5/mo VPS) with Python 3.11+.
+#   python -m venv /opt/hr && /opt/hr/bin/pip install "/opt/hunter-retention[postgres,crypto]"
+#   put the variables from .env.example in /opt/hunter-retention/.env
+# flock prevents overlapping runs.
+41 6 * * * cd /opt/hunter-retention && flock -n /tmp/hr.lock bash -c 'set -a; . ./.env; set +a; /opt/hr/bin/hunter-retention run' >> /var/log/hunter-retention.log 2>&1
