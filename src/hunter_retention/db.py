@@ -147,7 +147,7 @@ touches = Table(
 
 engagement = Table(
     "engagement", metadata,
-    Column("touch_id", Integer, primary_key=True),
+    Column("touch_id", Integer, primary_key=True, autoincrement=False),
     Column("delivered", Boolean, default=False),
     Column("opened", Boolean, default=False),
     Column("clicked", Boolean, default=False),
