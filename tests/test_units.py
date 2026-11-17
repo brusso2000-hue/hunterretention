@@ -183,3 +183,19 @@ def test_real_world_ap_addresses_are_detected(cfg):
         assert is_role_address(e, pats), e
     for e in ("cl_smajda@fischione.com", "april@x.com", "aparna@x.com", "purchasing@x.com"):
         assert not is_role_address(e, pats), e
+
+
+def test_intuit_tid_captured_on_errors():
+    from hunter_retention.http import ApiError, request_with_retry
+
+    class R:
+        status_code, text, content = 400, "bad query", b"x"
+        headers = {"intuit_tid": "1-abc-123"}
+
+    class S:
+        def request(self, *a, **k):
+            return R()
+
+    with pytest.raises(ApiError) as e:
+        request_with_retry(S(), "GET", "https://x", sleep=lambda s: None)
+    assert e.value.intuit_tid == "1-abc-123" and "1-abc-123" in str(e.value)

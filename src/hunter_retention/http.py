@@ -14,10 +14,12 @@ RETRY_STATUS = {408, 409, 425, 429, 500, 502, 503, 504}
 
 
 class ApiError(Exception):
-    def __init__(self, message: str, status: int | None = None, body: str | None = None):
-        super().__init__(message)
+    def __init__(self, message: str, status: int | None = None, body: str | None = None,
+                 intuit_tid: str | None = None):
+        super().__init__(message + (f" [intuit_tid={intuit_tid}]" if intuit_tid else ""))
         self.status = status
         self.body = body
+        self.intuit_tid = intuit_tid      # Intuit support asks for this to trace a failed call
 
 
 class RateLimiter:
@@ -54,9 +56,11 @@ def request_with_retry(session: requests.Session, method: str, url: str, *, limi
         else:
             if resp.status_code < 400:
                 return resp
+            tid = (resp.headers or {}).get("intuit_tid")
             if resp.status_code not in RETRY_STATUS:
-                raise ApiError(f"{method} {url} -> {resp.status_code}", resp.status_code, resp.text[:2000])
-            last_exc = ApiError(f"{method} {url} -> {resp.status_code}", resp.status_code, resp.text[:2000])
+                raise ApiError(f"{method} {url} -> {resp.status_code}", resp.status_code, resp.text[:2000], tid)
+            last_exc = ApiError(f"{method} {url} -> {resp.status_code}", resp.status_code, resp.text[:2000], tid)
+            log.warning("retryable %s from %s (intuit_tid=%s)", resp.status_code, url, tid)
             retry_after = resp.headers.get("Retry-After")
             if retry_after and retry_after.isdigit():
                 sleep(min(int(retry_after), 120))
