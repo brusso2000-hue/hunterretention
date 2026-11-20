@@ -322,6 +322,7 @@ class ContactResolver:
         self.stats = {"looked_up": 0, "primary_set": 0, "suggested": 0, "no_contact": 0, "credits": 0,
                       "mail_errors": 0}
         self._credits_this_month: int | None = None
+        self.last_mail_error: str | None = None
 
     # ------------------------------------------------------------------ daily entry
     def run(self) -> dict:
@@ -552,6 +553,7 @@ class ContactResolver:
             return fn() or []
         except Exception as exc:              # mailbox trouble degrades to "no inbox evidence", never a crash
             self.stats["mail_errors"] += 1
+            self.last_mail_error = f"{type(exc).__name__}: {exc}"[:300]
             log.warning("inbox search failed: %s", exc)
             return []
 

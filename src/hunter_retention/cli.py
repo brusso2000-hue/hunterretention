@@ -127,6 +127,8 @@ def cmd_contacts(cfg, args) -> int:
     print(f"Inbox search: {'on' if mail else 'OFF (Microsoft app not set up)'}; Apollo lookups: preview only, 0 credits")
     for (had, outcome), n in sorted(tally.items(), key=lambda kv: (kv[0][0], -kv[1])):
         print(f"  QuickBooks had {had:<10} -> {outcome:<28} {n}")
+    if resolver.stats["mail_errors"]:
+        print(f"Inbox search errors: {resolver.stats['mail_errors']} (last: {resolver.last_mail_error})")
     print(f"Details: {out}")
     return 0
 
