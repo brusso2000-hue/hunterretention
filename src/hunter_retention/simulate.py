@@ -101,7 +101,7 @@ def simulate(cfg: Config, source: DB, today: date, days_back: int, out_dir: Path
         for tid, e in sorted(would.items(), key=lambda kv: kv[1]["id"]):
             t = by_id[touch_by_id[tid]["track_id"]]
             d = e["data"] or {}
-            w.writerow([str(e["ts"])[:10], t["flow"], t["company"], t["email"], t["contact_role"],
+            w.writerow([touch_by_id[tid]["sent_on"] or str(e["ts"])[:10], t["flow"], t["company"], t["email"], t["contact_role"],
                         touch_by_id[tid]["touch_key"], d.get("variant"), d.get("subject"), d.get("body")])
     with (out_dir / "sim_flags.csv").open("w", newline="") as f:
         w = csv.writer(f)
