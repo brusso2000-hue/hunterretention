@@ -153,8 +153,6 @@ tracks:
 
         It's been a couple of months with the Carbitron 300, so here's the reorder info in one place.
 
-        [[VERIFY: one sentence on what to check on the Carbitron 300 after 2 to 3 months of use (hand piece, cables, electrode wear) and how often]]
-
         {% if consumables %}
         Electrodes from your original order:
         {% for c in consumables %}
