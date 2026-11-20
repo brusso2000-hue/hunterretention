@@ -39,8 +39,6 @@ tracks:
 
         Thanks again for ordering the {{ product }}. I wanted to check in as you get started with it.
 
-        One thing that trips people up early: between steps and at the end, wipe the part with a clean cloth. Don't rinse it in water.
-
         If anything about setup, surface prep or technique isn't clear, just reply to this email. It's usually faster to sort out here than by trial and error on a real part.
 
         Product page: {{ product_url }}
