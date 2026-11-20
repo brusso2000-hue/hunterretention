@@ -66,6 +66,8 @@ class ReorderPlanner:
         self.trigger_extra_days = int(r.get("trigger_extra_days", 0))
         self.gap_basis = str(r.get("gap_basis", "median"))     # median of recent gaps | last (their last gap only)
         self.long_gone_multiple = float(r.get("long_gone_multiple", 3.0))
+        self.long_gone_days = int(r.get("long_gone_days", 540))     # past this, a "running low?" note makes no sense
+        self.dormant_days = int(r.get("dormant_days", 730))         # past this, not even flagged
         self.key_revenue = float(r.get("personal_note_min_revenue", 10000))
         self.irregular_cv = float(r.get("irregular_cv", 1.0))
         self.exclude_domains = {d.lower() for d in (r.get("exclude_domains") or [])}
@@ -113,9 +115,11 @@ class ReorderPlanner:
             rh.decision, rh.detail = "first_time_flow", "still in the first-time buyer emails"
         elif self.today < rh.trigger_on:
             rh.decision = "not_due"
+        elif rh.days_since > self.dormant_days:
+            rh.decision, rh.detail = "dormant", f"no order in {rh.days_since} days"
         elif rh.usual_gap > self.max_gap:
             rh.decision, rh.detail = "too_infrequent", f"orders about every {rh.usual_gap} days"
-        elif rh.days_since > rh.usual_gap * self.long_gone_multiple:
+        elif rh.days_since > rh.usual_gap * self.long_gone_multiple or rh.days_since > self.long_gone_days:
             rh.decision, rh.detail = "long_gone", f"{rh.days_since} days since last order, usual gap {rh.usual_gap}"
         elif rh.revenue_12m >= self.key_revenue:
             rh.decision, rh.detail = "key_account", f"${rh.revenue_12m:,.0f} in the last 12 months"

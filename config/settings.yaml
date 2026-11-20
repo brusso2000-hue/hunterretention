@@ -92,6 +92,8 @@ reorder:
   trigger_extra_days: 0
   gap_basis: median                 # median = middle of their recent gaps (steadier); last = only their last gap
   long_gone_multiple: 3.0           # beyond this it is a win-back: flagged for you, not automated
+  long_gone_days: 540               # ...and so is anyone who has not ordered in this many days
+  dormant_days: 730                 # no order in this long: left alone, not even flagged
   personal_note_min_revenue: 10000  # accounts at or above this (last 12 months) are flagged for a personal note
   irregular_cv: 1.0                 # order timing more uneven than this is flagged, not automated
   exclude_domains: []               # customers handled by other outreach, e.g. [ttmtech.com]

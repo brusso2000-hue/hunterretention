@@ -106,6 +106,13 @@ def test_long_gone_customers_are_flagged_not_emailed(tmp_path):
     assert episodes(h, key) == [] and "reorder_long_gone" in reviews(h)
 
 
+def test_customers_gone_for_years_are_left_alone_without_a_flag(tmp_path):
+    h = Harness(tmp_path, settings=ON).strip_verify()
+    key = repeat_customer(h, every=300, last=D(2023, 6, 1))
+    h.run(D(2025, 11, 18))                                           # 901 days since the last order
+    assert episodes(h, key) == [] and reviews(h) == []
+
+
 def test_uneven_buyers_are_flagged_not_emailed(tmp_path):
     h = Harness(tmp_path, settings=ON).strip_verify()
     h.qbo.customer("51", "Lumpy Co", "lee@lumpy.com", given="Lee")

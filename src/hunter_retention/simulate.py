@@ -18,7 +18,7 @@ from collections import Counter
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from sqlalchemy import insert, select
+from sqlalchemy import insert, select, update
 
 from .alerts import Alerter
 from .config import Config
@@ -55,6 +55,13 @@ def simulate(cfg: Config, source: DB, today: date, days_back: int, out_dir: Path
     while day <= today:
         run_daily(sim_cfg, sim, None, None, Alerter(None), today=day, skip_sync=True, report_dir=tmp / "reports",
                   now=datetime.combine(day, datetime.min.time()) + timedelta(hours=12), mail=mail)
+        # A dry run only logs "WOULD SEND" and leaves the email scheduled. Mark those as sent in the copy, so
+        # later days behave as they would in production: spacing, frequency caps, follow-ups, completion.
+        with sim.engine.begin() as c:
+            ids = {r[0] for r in c.execute(select(events.c.touch_id).where(events.c.kind == "dry_run_send"))}
+            if ids:
+                c.execute(update(touches).where(touches.c.id.in_(ids) & (touches.c.status == "scheduled"))
+                          .values(status="sent", sent_on=day))
         day += timedelta(days=1)
 
     with sim.engine.begin() as c:
