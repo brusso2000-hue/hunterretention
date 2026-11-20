@@ -24,7 +24,7 @@ from .alerts import Alerter
 from .config import Config
 from .db import DB, apollo_fields, engagement, suppressions, touches, tracks, utcnow
 from .render import Renderer, body_to_html
-from .world import World
+from .world import World, revenue_12m_by_account
 
 log = logging.getLogger(__name__)
 
@@ -147,6 +147,18 @@ class Dispatcher:
             self._stop_track(tr, f"suppressed:{sup['source']}")
             self.stats["suppressed"] += 1
             return False
+
+        # House rule: accounts that spend this much a year never get automated emails, in either flow.
+        limit = float(self.cfg.s("eligibility.no_automation_min_revenue_12m", 0) or 0)
+        if limit and tr["status"] == "active":
+            rev = self._revenue_12m().get(tr["account_key"], 0.0)
+            if rev >= limit:
+                self._stop_track(tr, "key_account_no_automation")
+                self.stats["suppressed"] += 1
+                self.db.add_review("key_account_no_automation", f"{tr['account_key']}|{tr['id']}", {
+                    "company": tr["company"], "flow": tr.get("flow"), "revenue_12m": round(rev, 2),
+                    "why": f"spends ${rev:,.0f} a year: handle personally, no automated emails"})
+                return False
 
         if self._replied(tr) and self.cfg.s("eligibility.pause_on_reply", True):
             self._stop_track(tr, "customer_replied", final_status="completed")
@@ -441,6 +453,13 @@ class Dispatcher:
                 self.alerter.alert("Could not recall enrollment", f"touch {r['id']}: {exc}")
 
     # ================================================================ helpers
+    def _revenue_12m(self) -> dict[str, float]:
+        if getattr(self, "_rev_world", None) is not self.world:      # the world is replaced after a live recheck
+            self._rev = revenue_12m_by_account(self.world, self.today,
+                                               set(self.cfg.s("identity.freemail_domains", [])))
+            self._rev_world = self.world
+        return self._rev
+
     def _touch_cfg(self, tr: dict, key: str) -> dict:
         for t in self.cfg.lc(f"tracks.{tr['segment']}.touches", []) or []:
             if t["key"] == key:

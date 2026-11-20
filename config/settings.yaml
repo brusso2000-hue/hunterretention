@@ -94,7 +94,6 @@ reorder:
   long_gone_multiple: 3.0           # beyond this it is a win-back: flagged for you, not automated
   long_gone_days: 540               # ...and so is anyone who has not ordered in this many days
   dormant_days: 730                 # no order in this long: left alone, not even flagged
-  personal_note_min_revenue: 10000  # accounts at or above this (last 12 months) are flagged for a personal note
   irregular_cv: 1.0                 # order timing more uneven than this is flagged, not automated
   exclude_domains: []               # customers handled by other outreach, e.g. [ttmtech.com]
   exclude_accounts: []
@@ -104,6 +103,10 @@ eligibility:
   ignored_products_count_as_history: true
   refund_window_days: 120
   full_refund_threshold: 0.9             # credit >= 90% of the order within the window = refunded/canceled
+  # Accounts that spent this much in the last 12 months get NO automated emails from either flow.
+  # Counted per company: QuickBooks customers sharing an email domain (e.g. TTM's plants) are added together.
+  # They go on the review list for a personal note instead. 0 turns the rule off.
+  no_automation_min_revenue_12m: 10000
   min_days_between_emails: 7
   max_emails_per_30_days: 2
   pause_on_reply: true                   # a reply hands the customer to a human; remaining touches stop

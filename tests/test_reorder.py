@@ -199,3 +199,29 @@ def test_simulation_runs_both_flows_without_writing_to_the_source_database(tmp_p
     with h.db.engine.begin() as c:
         assert len(c.execute(select(tracks)).all()) == before          # source database untouched
     assert (tmp_path / "sim" / "sim_emails.csv").exists()
+
+
+def test_sister_plants_on_one_domain_count_together_toward_the_10k_rule(tmp_path):
+    h = Harness(tmp_path, settings=ON).strip_verify()
+    a = repeat_customer(h, cid="70", email="ann@bigco.com", amount=3000.0)       # $6,000 a year on its own
+    b = repeat_customer(h, cid="71", email="bob@bigco.com", amount=3000.0)       # same company, another plant
+    h.run_range(D(2025, 11, 18), D(2025, 11, 25))
+    assert episodes(h, a) == [] and episodes(h, b) == [] and h.apollo.enrollments == []
+    assert reviews(h).count("reorder_key_account") == 2
+
+
+def test_first_time_buyer_who_spends_over_10k_gets_no_automated_emails(tmp_path):
+    h = Harness(tmp_path).strip_verify()
+    h.qbo.customer("72", "Big First Order Inc", "pat@bigfirst.com", given="Pat")
+    h.qbo.order("72", D(2026, 1, 1), [("PL-1000C", 1, 400.0), ("PL-1016", 60, 220.0)], ship_date=D(2026, 1, 1))
+    h.run_range(D(2026, 1, 1), D(2026, 2, 15))
+    assert h.apollo.enrollments == []
+    assert h.track("acct:72")["status_reason"] == "key_account_no_automation"
+    assert "key_account_no_automation" in reviews(h)
+
+
+def test_the_10k_rule_can_be_turned_off(tmp_path):
+    h = Harness(tmp_path, settings={**ON, "eligibility": {"no_automation_min_revenue_12m": 0}}).strip_verify()
+    key = repeat_customer(h, amount=6000.0)
+    h.run(D(2025, 11, 18))
+    assert len(episodes(h, key)) == 1

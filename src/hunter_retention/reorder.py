@@ -28,7 +28,7 @@ from .classify import LIFECYCLE, Classifier
 from .config import Config
 from .db import DB, touches, tracks, utcnow
 from .identity import Account
-from .world import Order, World
+from .world import Order, World, revenue_12m_by_account
 
 log = logging.getLogger(__name__)
 
@@ -68,7 +68,8 @@ class ReorderPlanner:
         self.long_gone_multiple = float(r.get("long_gone_multiple", 3.0))
         self.long_gone_days = int(r.get("long_gone_days", 540))     # past this, a "running low?" note makes no sense
         self.dormant_days = int(r.get("dormant_days", 730))         # past this, not even flagged
-        self.key_revenue = float(r.get("personal_note_min_revenue", 10000))
+        self.key_revenue = float(cfg.s("eligibility.no_automation_min_revenue_12m", 10000) or 0)
+        self._group_rev: dict[str, float] | None = None
         self.irregular_cv = float(r.get("irregular_cv", 1.0))
         self.exclude_domains = {d.lower() for d in (r.get("exclude_domains") or [])}
         self.exclude_accounts = set(r.get("exclude_accounts") or [])
@@ -94,8 +95,10 @@ class ReorderPlanner:
         mean = statistics.fmean(gaps)
         cv = (statistics.pstdev(gaps) / mean) if mean and len(gaps) >= 3 else 0.0
         last = orders[-1]
-        year_ago = self.today - timedelta(days=365)
-        rev = sum(o.product_amount for o in orders if o.date >= year_ago)
+        if self._group_rev is None:          # company-level: sister plants on one domain count together
+            self._group_rev = revenue_12m_by_account(self.world, self.today,
+                                                     set(self.cfg.s("identity.freemail_domains", [])))
+        rev = self._group_rev.get(key, 0.0)
         return Rhythm(key, events, last, usual, (self.today - last.date).days,
                       last.date + timedelta(days=math.ceil(usual * self.trigger_multiple) + self.trigger_extra_days),
                       rev,
@@ -121,7 +124,7 @@ class ReorderPlanner:
             rh.decision, rh.detail = "too_infrequent", f"orders about every {rh.usual_gap} days"
         elif rh.days_since > rh.usual_gap * self.long_gone_multiple or rh.days_since > self.long_gone_days:
             rh.decision, rh.detail = "long_gone", f"{rh.days_since} days since last order, usual gap {rh.usual_gap}"
-        elif rh.revenue_12m >= self.key_revenue:
+        elif self.key_revenue and rh.revenue_12m >= self.key_revenue:
             rh.decision, rh.detail = "key_account", f"${rh.revenue_12m:,.0f} in the last 12 months"
         elif rh.irregular:
             rh.decision, rh.detail = "irregular", "order timing too uneven to automate"
