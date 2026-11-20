@@ -438,9 +438,9 @@ def test_live_blocked_without_env_flag(tmp_path):
 
 
 def test_unverified_copy_blocks_live_send(tmp_path):
-    h = Harness(tmp_path)          # real content, still containing VERIFY markers in the Carbitron e2 tips
+    h = Harness(tmp_path)          # real content, still containing VERIFY markers in the Micro-Jet e2 tips
     h.qbo.customer("10", "Acme Tooling", "jane@acmetooling.com", given="Jane")
-    h.qbo.order("10", D(2026, 1, 1), [("TS3037-110 Volt", 1, 495.0)], ship_date=D(2026, 1, 1))
+    h.qbo.order("10", D(2026, 1, 1), [("AB2000", 1, 900.0)], ship_date=D(2026, 1, 1))
     h.run_range(D(2026, 1, 1), D(2026, 2, 6))
     t = h.touches(acct("10"))
     assert t["e1"]["status"] == "sent"                       # e1 has no markers

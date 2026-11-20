@@ -132,17 +132,15 @@ tracks:
         {{ sender_phone }}
 
     e2:
-      subject: "Carbitron 300 operating tips"
+      subject: "How is the Carbitron 300 working out?"
       body: |
         {{ greeting }}
 
-        About a month in with the Carbitron 300, here are a few notes that help get consistent results.
+        It's been about a month since your Carbitron 300 arrived. Have you had success with it so far?
 
-        {% for b in blocks %}
-        {{ b }}
+        If you're running low on carbide, replacement electrodes are here: {{ store_url }}
 
-        {% endfor %}
-        Electrodes come in tungsten carbide (1/32", 1/16", 1/8" and 7/32") and titanium carbide (1/8"). If you're not sure which size fits your work, reply with what you're coating.
+        Or just reply with what you need and I'll get it out to you.
 
         Best,
         {{ sender_name }}
@@ -425,12 +423,6 @@ role_variants:
 # Tip blocks inserted into e2 by application (A) or product line (B, C).
 # A customer buying two metals gets both blocks (max_application_blocks).
 blocks:
-  B:
-    e2:
-      carbitron: |
-        - [[VERIFY: Carbitron tip 1, e.g. surface prep before applying tungsten carbide]]
-        - [[VERIFY: Carbitron tip 2, e.g. power/vibration settings for small vs large areas]]
-        - [[VERIFY: Carbitron tip 3, e.g. how to tell when an electrode needs replacing]]
   C:
     e2:
       micro_jet: |
