@@ -70,7 +70,7 @@ tracks:
         {% endfor %}
 
         {% endif %}
-        Questions on a specific part or substrate? Reply here or send details through {{ tech_url }}.
+        Questions on a specific part or substrate? Reply here, or send details through this form: {{ tech_url }}
 
         Best,
         {{ sender_name }}
@@ -89,11 +89,12 @@ tracks:
         - {{ c.display }} ({{ c.sku }}){% if c.url %}: {{ c.url }}{% endif %}
 
         {% endfor %}
-        {% else %}
-        Pens for the {{ product }} are here: {{ store_url }}
         {% endif %}
 
-        Reply with quantities and a PO number and we'll ship same day, or order online at {{ store_url }}. If you need a quote first: {{ quote_url }}
+        Reply with quantities and a PO number and it ships the same or next business day.
+
+        Order online: {{ store_url }}
+        Need a quote first: {{ quote_url }}
 
         Best,
         {{ sender_name }}
@@ -156,6 +157,8 @@ tracks:
       body: |
         {{ greeting }}
 
+        It's been a couple of months with the Carbitron 300, so here's the reorder info in one place.
+
         [[VERIFY: one sentence on what to check on the Carbitron 300 after 2 to 3 months of use (hand piece, cables, electrode wear) and how often]]
 
         {% if consumables %}
@@ -170,7 +173,9 @@ tracks:
         - Power Cable, red (TS3045)
         - Ground Cable, black (TS3046)
 
-        Reply with what you need and a PO number and we'll ship same day. Electrodes and parts online: {{ store_url }}
+        Reply with what you need and a PO number and it ships the same or next business day.
+
+        Order online: {{ store_url }}
 
         Best,
         {{ sender_name }}
@@ -219,7 +224,7 @@ tracks:
         {{ b }}
 
         {% endfor %}
-        Media we stock: aluminum oxide (AB2024, AB2025), silicon carbide (AB2028, AB2029) and glass beads (AB3032). Media page: https://hunterproducts.com/store/?type=media
+        Media we stock: aluminum oxide (AB2024, AB2025), silicon carbide (AB2028, AB2029) and glass beads (AB2032). Media page: https://hunterproducts.com/store/?type=media
 
         Best,
         {{ sender_name }}
@@ -239,10 +244,13 @@ tracks:
 
         {% endfor %}
         {% endif %}
-        Nozzles: Nozzle Assembly .020" (AB2001), Tungsten Carbide Nozzle Assembly .030" (AB2002), Tungsten Carbide Nozzle .020" (AB2003)
+        Tungsten carbide nozzles: .020" (AB2003) and .030" (AB2004)
+        Nozzle assemblies: .020" (AB2001) and .030" (AB2002)
         [[VERIFY: when a nozzle should be replaced (sign of wear) for the Micro-Jet 200]]
 
-        Reply with what you need and a PO number and we'll ship same day, or order online: {{ store_url }}
+        Reply with what you need and a PO number and it ships the same or next business day.
+
+        Order online: {{ store_url }}
 
         Best,
         {{ sender_name }}
@@ -269,9 +277,9 @@ tracks:
       body: |
         {{ greeting }}
 
-        Thanks for ordering the {{ product }} from us. Quick question so we can help going forward: which {{ family_label }} system are you running these with, and roughly how long has it been in service?
+        Thanks for your order of the {{ product }}. One quick question so I can be more useful: what are you using your {{ family_label }} for, and roughly how long has it been in service?
 
-        If you need anything for it, parts, technique help, or a quote, just reply here.
+        If you need anything for it, whether that's parts, technique help or a quote, just reply here.
 
         Best,
         {{ sender_name }}
@@ -286,13 +294,16 @@ tracks:
         It's been a couple of months since your order, so I wanted to make the next one easy.
 
         {% if consumables %}
-        From your last order:
+        From your order:
         {% for c in consumables %}
         - {{ c.display }} ({{ c.sku }}){% if c.url %}: {{ c.url }}{% endif %}
 
         {% endfor %}
         {% endif %}
-        Reply with quantities and a PO number and we'll ship same day, or order online at {{ store_url }}.
+
+        Reply with quantities and a PO number and it ships the same or next business day.
+
+        Order online: {{ store_url }}
 
         Best,
         {{ sender_name }}
@@ -330,7 +341,7 @@ role_variants:
 
         {% endfor %}
         {% endif %}
-        To reorder, reply to this email with part numbers, quantities and a PO. Most orders ship within 2 days.
+        To reorder, reply to this email with part numbers, quantities and a PO. Orders ship the same or next business day.
 
         Also, if someone else at {{ company or "your company" }} is the one using these, could you forward this to them or send me their name? I have setup and technique notes that will be more useful to them than to purchasing: {{ guides_url if family == "micro_metallizer" else system_url }}
 
@@ -358,7 +369,7 @@ role_variants:
         {% else %}
         Parts and supplies: {{ store_url }}
         {% endif %}
-        Lead time: most orders ship within 2 days.
+        Lead time: orders ship the same or next business day.
         Terms: Net 30 is available, and we take ACH.
 
         Reply with quantities and a PO, or request a formal quote here: {{ quote_url }}

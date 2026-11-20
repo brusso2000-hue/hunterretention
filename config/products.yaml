@@ -23,11 +23,11 @@ families:
   carbitron:
     label: "Carbitron 300"
     system_url: "https://hunterproducts.com/systems/carbitron-300/"
-    store_url: "https://hunterproducts.com/store/?type=consumable"
+    store_url: "https://hunterproducts.com/store/?line=carbitron"
   micro_jet:
     label: "Micro-Jet 200"
     system_url: "https://hunterproducts.com/systems/micro-jet-200/"
-    store_url: "https://hunterproducts.com/store/?type=media"
+    store_url: "https://hunterproducts.com/store/?line=micro-jet"
 
 # Lines that are not products. Ignored for classification; an order made only of these is not a purchase.
 non_product:
@@ -106,16 +106,16 @@ items:
   - {name: "AB2000", family: micro_jet, role: equipment, display: "Micro-Jet 200", url: "https://hunterproducts.com/systems/micro-jet-200/"}
   - {name: "AB2005", family: micro_jet, role: equipment, display: "Model 1210 BCG Blast Cabinet"}
   - {name: "AB2017", family: micro_jet, role: equipment, display: "Model 1400 BC Blast Cabinet"}
-  - {name: "AB2001", family: micro_jet, role: consumable, display: "Nozzle Assembly .020\""}
+  - {name: "AB2001", family: micro_jet, role: consumable, display: "Tungsten Carbide Nozzle Assembly .020\""}
   - {name: "AB2002", family: micro_jet, role: consumable, display: "Tungsten Carbide Nozzle Assembly .030\""}
   - {name: "AB2003", family: micro_jet, role: consumable, display: "Tungsten Carbide Nozzle .020\""}
-  - {name: "AB2004", family: micro_jet, role: consumable, display: "Tungsten Carbide Nozzle"}
-  - {name: "AB2024", family: micro_jet, role: consumable, display: "Aluminum Oxide 220 (MGAO)"}
-  - {name: "AB2025", family: micro_jet, role: consumable, display: "Aluminum Oxide 5 lb (MGAO)"}
-  - {name: "AB2028", family: micro_jet, role: consumable, display: "Silicon Carbide Extra Fine 5 lb"}
-  - {name: "AB2029", family: micro_jet, role: consumable, display: "Silicon Carbide 320 Super Fine 5 lb"}
-  - {name: "AB3032", family: micro_jet, role: consumable, display: "Glass Beads MS/XL Super Fine 5 lb"}
-  - {name: "AB2032", family: micro_jet, role: consumable, display: "Glass Beads MS/XL Super Fine 5 lb"}
+  - {name: "AB2004", family: micro_jet, role: consumable, display: "Tungsten Carbide Nozzle .030\""}
+  - {name: "AB2024", family: micro_jet, role: consumable, display: "Aluminum Oxide MGAO-220 (Extra Fine), 5 lb"}
+  - {name: "AB2025", family: micro_jet, role: consumable, display: "Aluminum Oxide MGAO-320 (Super Fine), 5 lb"}
+  - {name: "AB2028", family: micro_jet, role: consumable, display: "Silicon Carbide MGSC-220 (Extra Fine), 5 lb"}
+  - {name: "AB2029", family: micro_jet, role: consumable, display: "Silicon Carbide MGSC-320 (Super Fine), 5 lb"}
+  - {name: "AB3032", family: micro_jet, role: consumable, display: "Glass Beads MS/XL (Super Fine), 5 lb"}
+  - {name: "AB2032", family: micro_jet, role: consumable, display: "Glass Beads MS/XL (Super Fine), 5 lb"}
   - {name: "#100 ALUIMINUM OXIIDE", family: micro_jet, role: consumable, display: "Blast Compound (#100 Aluminum Oxide)"}
   - {name: "#100 ALIMINUM OXIIDE",  family: micro_jet, role: consumable, display: "#100 Aluminum Oxide"}
   - {name_regex: "^AB20(0[6-9]|1[0-6]|1[89]|2[1-3]|34)$", family: micro_jet, role: accessory, display: "Micro-Jet spare part"}

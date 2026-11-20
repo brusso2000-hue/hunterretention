@@ -321,7 +321,7 @@ def sample_track(cfg, segment: str, app: str | None) -> dict:
     elif segment == "C":
         lines = [{"sku": "AB2000", "display": "Micro-Jet 200", "qty": 1, "amount": 495, "family": "micro_jet",
                   "role": "equipment", "applications": [], "url": "https://hunterproducts.com/systems/micro-jet-200/"},
-                 {"sku": "AB2025", "display": "Aluminum Oxide 5 lb (MGAO)", "qty": 1, "amount": 35, "family": "micro_jet",
+                 {"sku": "AB2025", "display": "Aluminum Oxide MGAO-320 (Super Fine), 5 lb", "qty": 1, "amount": 35, "family": "micro_jet",
                   "role": "consumable", "applications": [], "url": None}]
         fam, sub, apps = "micro_jet", "micro_jet", []
     else:
