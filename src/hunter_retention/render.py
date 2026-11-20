@@ -54,6 +54,14 @@ class Renderer:
             if ln["role"] in ("consumable", "prep") and ln["sku"] not in seen:
                 seen.add(ln["sku"])
                 consumables.append(ln)
+        # How to name the order in a sentence: "Contact Repair Kit", "24K Gold Plating Pens", "plating pens".
+        product_ref = main.get("display")
+        if main.get("role") != "equipment" and fam == "micro_metallizer":
+            pens = [ln for ln in fam_lines if ln["role"] == "consumable"]
+            if len({ln["sku"] for ln in pens}) > 1:
+                product_ref = "plating pens"
+            elif (main.get("qty") or 1) > 1 and str(product_ref).endswith("Pen"):
+                product_ref = f"{product_ref}s"
         apps = [a for a in (track.get("applications") or []) if a]
         sender = self.cfg.s("sender", {}) or {}
         first = (track.get("first_name") or "").strip()
@@ -70,6 +78,7 @@ class Renderer:
             "system_url": fam_cfg.get("system_url", ""),
             "store_url": fam_cfg.get("store_url", ""),
             "product": main.get("display"),
+            "product_ref": product_ref,
             "product_sku": main.get("sku"),
             "product_url": main.get("url") or fam_cfg.get("system_url", ""),
             "products": fam_lines,

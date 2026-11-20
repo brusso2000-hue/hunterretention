@@ -33,11 +33,11 @@ tracks:
   # ===================================================================== A: Micro-Metallizer
   A:
     e1:
-      subject: "Getting started with your {{ product }}"
+      subject: "Getting started with your {{ product_ref }}"
       body: |
         {{ greeting }}
 
-        Thanks again for ordering the {{ product }}. I wanted to check in as you get started with it.
+        Thanks again for ordering the {{ product_ref }}. I wanted to check in as you get started.
 
         If anything about setup, surface prep or technique isn't clear, just reply to this email. It's usually faster to sort out here than by trial and error on a real part.
 
@@ -50,11 +50,11 @@ tracks:
         {{ sender_phone }}
 
     e2:
-      subject: "One month in with your {{ product }}"
+      subject: "One month in with your {{ product_ref }}"
       body: |
         {{ greeting }}
 
-        It's been about a month since your {{ product }} order.
+        It's been about a month since you ordered the {{ product_ref }}.
 
         {% if consumables %}
         Here's what you ordered, in case you need more:
@@ -102,7 +102,7 @@ tracks:
       body: |
         {{ greeting }}
 
-        I wanted to personally follow up and see how things have been going with the {{ product }}.
+        I wanted to personally follow up and see how things have been going with the {{ product_ref }}.
 
         Have you been getting the results you were looking for?
 
