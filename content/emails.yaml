@@ -10,7 +10,15 @@
 #
 # Variables: greeting, first_name, company, product, product_sku, product_url, products, consumables,
 #   application_labels, family_label, system_url, store_url, quote_url, tech_url, resources_url,
-#   guides_url, sender_name, sender_title, sender_company, sender_phone, blocks (rendered tip blocks)
+#   guides_url, sender_name, sender_title, sender_company, sender_phone, blocks (rendered tip blocks),
+#   po_number, contact_role, family
+#
+# CONTACT TYPES
+#  The contact lookup tags each person as user, buyer, owner_operator or unknown.
+#   * user and unknown get the standard emails under `tracks:`.
+#   * buyer and owner_operator get the versions under `role_variants:` where one exists,
+#     otherwise the standard email. `skip: true` means that contact type does not get that email.
+#   * To override one product line only, add `variants: {buyer: {subject:, body:}}` under that email.
 
 greeting_fallback: "Hello,"
 max_application_blocks: 2
@@ -303,6 +311,109 @@ tracks:
         Best,
         {{ sender_name }}
         {{ sender_company }}
+
+# ============================================================================ versions by contact type
+role_variants:
+  # --------------------------------------------------------------- buyer (purchasing; did not use the product)
+  buyer:
+    e1:
+      subject: "Reorder info for your Hunter Products order{% if po_number %} (PO {{ po_number }}){% endif %}"
+      body: |
+        {{ greeting }}
+
+        Thanks for the order{% if po_number %} on PO {{ po_number }}{% endif %}. Two things that may save you time later.
+
+        {% if products %}
+        What was ordered:
+        {% for p in products %}
+        - {{ p.display }} ({{ p.sku }})
+
+        {% endfor %}
+        {% endif %}
+        To reorder, reply to this email with part numbers, quantities and a PO. Most orders ship within 2 days.
+
+        Also, if someone else at {{ company or "your company" }} is the one using these, could you forward this to them or send me their name? I have setup and technique notes that will be more useful to them than to purchasing: {{ guides_url if family == "micro_metallizer" else system_url }}
+
+        Best,
+        {{ sender_name }}
+        {{ sender_company }}
+        {{ sender_phone }}
+
+    e2:
+      skip: true        # technique tips go to users, not purchasing
+
+    e3:
+      subject: "{{ family_label }} reorder: part numbers and lead time"
+      body: |
+        {{ greeting }}
+
+        It's been a couple of months since {{ company or "your team" }}'s first order, so stock may be getting low. Here is everything needed to reorder.
+
+        {% if consumables %}
+        Part numbers from the first order:
+        {% for c in consumables %}
+        - {{ c.display }} ({{ c.sku }})
+
+        {% endfor %}
+        {% else %}
+        Parts and supplies: {{ store_url }}
+        {% endif %}
+        Lead time: most orders ship within 2 days.
+        Terms: Net 30 is available, and we take ACH.
+
+        Reply with quantities and a PO, or request a formal quote here: {{ quote_url }}
+
+        Best,
+        {{ sender_name }}
+        {{ sender_company }}
+        {{ sender_phone }}
+
+    e4:
+      subject: "{% if family == 'micro_metallizer' %}Blanket PO or volume pricing for {{ company or 'your team' }}{% else %}Parts and supplies for your {{ family_label }}{% endif %}"
+      body: |
+        {{ greeting }}
+
+        {% if family == "micro_metallizer" %}
+        If {{ company or "your team" }} expects to keep using the plating pens, there are two ways to cut the paperwork and the price:
+
+        - A blanket PO with scheduled releases, so pens arrive on a set schedule without a new PO each time.
+        - Volume pricing on orders of 50 pens or more.
+        {% else %}
+        If {{ company or "your team" }} will need parts or supplies for the {{ family_label }} this year, a blanket PO with scheduled releases saves a new PO each time, and I can quote everything on one page.
+        {% endif %}
+
+        If {{ "either" if family == "micro_metallizer" else "that" }} is useful, reply with rough annual quantities and I'll send a quote: {{ quote_url }}
+
+        Best,
+        {{ sender_name }}
+        {{ sender_company }}
+        {{ sender_phone }}
+
+  # --------------------------------------------------------------- owner_operator (one person orders and uses it)
+  # Gets the standard emails, except the reorder email leads with the web store instead of a PO.
+  owner_operator:
+    e3:
+      subject: "Restocking {{ family_label }} supplies"
+      body: |
+        {{ greeting }}
+
+        It's been a couple of months since your first order, so here's the quick way to restock when you need to.
+
+        {% if consumables %}
+        From your original order:
+        {% for c in consumables %}
+        - {{ c.display }} ({{ c.sku }}){% if c.url %}: {{ c.url }}{% endif %}
+
+        {% endfor %}
+        {% endif %}
+
+        Fastest is the web store: {{ store_url }}
+        Or just reply with what you need and I'll set it up.
+
+        Best,
+        {{ sender_name }}
+        {{ sender_company }}
+        {{ sender_phone }}
 
 # Tip blocks inserted into e2 by application (A) or product line (B, C).
 # A customer buying two metals gets both blocks (max_application_blocks).

@@ -165,11 +165,13 @@ class Planner:
         vals = dict(
             account_key=acct.key, customer_ids=acct.customer_ids, email=acct.contact_email,
             first_name=acct.first_name, last_name=acct.last_name, company=acct.company,
+            contact_role=acct.contact_role, contact_source=acct.contact_source,
             segment=fp.cls.segment, subsegment=fp.cls.subsegment, primary_family=fp.cls.primary_family,
             families=fp.cls.families, applications=fp.cls.applications,
             first_order_pk=fp.primary.pk, first_order_date=fp.date, anchor_date=anchor, anchor_basis=basis,
             order_summary={"orders": fp.pks, "lines": summary,
-                           "secondary_segments": fp.cls.secondary_segments},
+                           "secondary_segments": fp.cls.secondary_segments,
+                           "po_number": fp.primary.po_number, "doc_number": fp.primary.doc_number},
             holdout=holdout, status=status, status_reason=reason, reorder_status="none",
             created_at=utcnow(), updated_at=utcnow(),
         )
@@ -273,6 +275,11 @@ class Planner:
             updates["email"] = acct.contact_email
         if acct.first_name != tr["first_name"]:
             updates["first_name"] = acct.first_name
+        if acct.last_name != tr.get("last_name"):
+            updates["last_name"] = acct.last_name
+        if acct.contact_email and acct.contact_role != (tr.get("contact_role") or "unknown"):
+            updates["contact_role"] = acct.contact_role
+            updates["contact_source"] = acct.contact_source
         if updates:
             with self.db.engine.begin() as c:
                 c.execute(update(tracks).where(tracks.c.id == tr["id"]).values(**updates, updated_at=utcnow()))
@@ -313,7 +320,9 @@ class Planner:
         if tr["status_reason"] in ("missing_email", "role_email_only") and self._contact_problem(acct) is None:
             with self.db.engine.begin() as c:
                 c.execute(update(tracks).where(tracks.c.id == tr["id"]).values(
-                    status="active", status_reason="contact_fixed", email=acct.contact_email, updated_at=utcnow()))
+                    status="active", status_reason="contact_fixed", email=acct.contact_email,
+                    first_name=acct.first_name, last_name=acct.last_name, contact_role=acct.contact_role,
+                    contact_source=acct.contact_source, updated_at=utcnow()))
             self.db.log("hold_released", "Contact email now available", run_id=self.run_id,
                         account_key=acct.key, track_id=tr["id"])
 

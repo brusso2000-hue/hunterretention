@@ -11,6 +11,7 @@ from sqlalchemy import insert, update
 from .alerts import Alerter
 from .apollo import ApolloAPI
 from .classify import Classifier
+from .contacts import ContactResolver, MailSearch
 from .config import ROOT, Config
 from .db import DB, runs, utcnow
 from .dispatch import Dispatcher, LiveSendBlocked
@@ -30,7 +31,8 @@ def local_today(cfg: Config) -> date:
 
 def run_daily(cfg: Config, db: DB, qbo: QBOSource | None, apollo: ApolloAPI | None, alerter: Alerter,
               today: date | None = None, skip_sync: bool = False, force_full_sync: bool = False,
-              report_dir: str | Path | None = None, now: datetime | None = None) -> dict:
+              report_dir: str | Path | None = None, now: datetime | None = None,
+              mail: MailSearch | None = None) -> dict:
     today = today or local_today(cfg)
     db.create_all()
     with db.engine.begin() as c:
@@ -43,6 +45,11 @@ def run_daily(cfg: Config, db: DB, qbo: QBOSource | None, apollo: ApolloAPI | No
             stats["sync"] = syncer.run(now=now, force_full=force_full_sync)
 
         world = load_world(db, cfg, classifier)
+        # Find the right person at each new customer before planning, so holds for "AP inbox only"
+        # clear themselves. Apollo lookups cost credits, so they only run in the modes listed in contacts.credit_modes.
+        credit_modes = cfg.s("contacts.credit_modes", ["live"]) or []
+        people = apollo if hasattr(apollo, "match_person") and cfg.mode in credit_modes else None
+        stats["contacts"] = ContactResolver(db, cfg, world, classifier, today, mail, people, run_id).run()
         stats["plan"] = Planner(db, cfg, classifier, world, today, run_id).plan()
 
         renderer = Renderer(cfg)

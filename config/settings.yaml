@@ -60,6 +60,20 @@ identity:
   freemail_domains: [gmail.com, yahoo.com, hotmail.com, outlook.com, aol.com, icloud.com, live.com, msn.com,
                      comcast.net, verizon.net, att.net, me.com, protonmail.com, ymail.com, qq.com, 163.com]
 
+# Contact lookup: who to email at each new customer, and what kind of contact they are.
+# Order tried: QuickBooks emails, our Outlook history, the PO email, shipping-label name via Apollo,
+# then an Apollo engineer search for larger orders. See src/hunter_retention/contacts.py.
+contacts:
+  enabled: true
+  auto_threshold: 65            # score (0-100) a found contact needs to be used without a human look
+  monthly_credit_cap: 25        # most Apollo credits the lookup may spend per calendar month
+  credit_modes: [live]          # Apollo lookups only run in these modes; dry_run and sandbox spend nothing
+  apollo_search_min_order: 1000 # engineer search only for first orders at or above this amount
+  inbox_lookback_days: 730
+  retry_days: 30                # accounts with no contact are looked up again this often
+  mailboxes: ["hunter@hunterproducts.com", "sales@hunterproducts.com"]
+  own_domains: [hunterproducts.com, hunterproducts.co]
+
 eligibility:
   min_order_amount: 0.01                 # $0 sample shipments are not purchases
   ignored_products_count_as_history: true

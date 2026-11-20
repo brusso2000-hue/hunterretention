@@ -9,6 +9,8 @@ Verified against docs.apollo.io (Nov 2026):
   POST /emailer_campaigns/{id}/add_contact_ids        enroll (0 credits, 600/hr)
   POST /emailer_campaigns/remove_or_stop_contact_ids  stop / finish / remove (0 credits, 600/hr)
   POST /emailer_messages/search                       engagement (best effort)
+  POST /people/match                                  contact lookup: name + company domain -> email (1 credit)
+  POST /mixed_people/api_search                       contact lookup: people by domain + title (no emails, 0 credits)
 """
 from __future__ import annotations
 
@@ -113,6 +115,33 @@ class ApolloClient:
         body = self._call("POST", "/emailer_messages/search", json={
             "contact_ids": [contact_id], "emailer_campaign_ids": sequence_ids, "per_page": 50})
         return body.get("emailer_messages") or []
+
+
+    # ---------------------------------------------------------------- people (contact lookup)
+    def match_person(self, first_name: str, last_name: str, domain: str, company: str | None = None) -> dict | None:
+        """Find one named person at a company. Costs a credit only when Apollo returns a match."""
+        params = {"first_name": first_name, "last_name": last_name, "domain": domain,
+                  "reveal_personal_emails": "false"}
+        if company:
+            params["organization_name"] = company
+        try:
+            body = self._call("POST", "/people/match", params=params)
+        except ApiError as exc:
+            if exc.status in (404, 422):
+                return None
+            raise
+        p = body.get("person") or {}
+        email = p.get("email") or ""
+        if not email or "email_not_unlocked" in email:
+            return None
+        return {"email": email, "email_status": p.get("email_status"), "title": p.get("title"),
+                "first_name": p.get("first_name"), "last_name": p.get("last_name"), "id": p.get("id")}
+
+    def search_people(self, domain: str, titles: list[str], limit: int = 5) -> list[dict]:
+        body = self._call("POST", "/mixed_people/api_search", json={
+            "q_organization_domains_list": [domain], "person_titles": titles, "per_page": limit, "page": 1})
+        return [{"first_name": p.get("first_name"), "last_name": p.get("last_name") or p.get("last_name_obfuscated"),
+                 "title": p.get("title"), "id": p.get("id")} for p in (body.get("people") or [])][:limit]
 
 
 def _skipped_reason(body: dict, contact_id: str) -> str | None:

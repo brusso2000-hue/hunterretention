@@ -173,6 +173,12 @@ class Dispatcher:
                 return False
 
         rendered = self.renderer.render(tr, t["touch_key"])
+        if rendered.skip:
+            self._set_touch(t, "suppressed", f"role:{rendered.variant}_skips_this_email")
+            self.stats["suppressed"] += 1
+            self.db.log("role_skip", f"{t['touch_key']} not sent: contact is a {rendered.variant}", run_id=self.run_id,
+                        account_key=tr["account_key"], track_id=tr["id"], touch_id=t["id"])
+            return False
         if self.mode == "live" and not rendered.is_clean:
             self._defer(t, "content_unverified")
             if not self._content_alerted:
@@ -185,7 +191,8 @@ class Dispatcher:
             self.db.log("dry_run_send", f"WOULD SEND {t['touch_key']} to {email}", run_id=self.run_id,
                         account_key=tr["account_key"], track_id=tr["id"], touch_id=t["id"],
                         data={"subject": rendered.subject, "body": rendered.body,
-                              "unverified": rendered.unverified})
+                              "unverified": rendered.unverified, "variant": rendered.variant,
+                              "contact_role": tr.get("contact_role"), "contact_source": tr.get("contact_source")})
             self.stats["dry_run"] += 1
             return False
 

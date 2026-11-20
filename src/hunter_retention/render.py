@@ -25,6 +25,8 @@ class Rendered:
     subject: str
     body: str
     unverified: list[str]
+    skip: bool = False               # this contact type does not get this email (e.g. buyers skip technique tips)
+    variant: str = "standard"
 
     @property
     def is_clean(self) -> bool:
@@ -60,6 +62,9 @@ class Renderer:
             "greeting": f"Hi {first}," if first else self.content.get("greeting_fallback", "Hello,"),
             "company": track.get("company") or "",
             "segment": track["segment"],
+            "family": fam,
+            "contact_role": track.get("contact_role") or "unknown",
+            "po_number": (track.get("order_summary") or {}).get("po_number") or "",
             "subsegment": track.get("subsegment"),
             "family_label": fam_cfg.get("label", ""),
             "system_url": fam_cfg.get("system_url", ""),
@@ -87,6 +92,17 @@ class Renderer:
         tpl = ((self.content.get("tracks") or {}).get(seg) or {}).get(touch_key)
         if not tpl:
             raise KeyError(f"No email content for segment {seg} touch {touch_key}")
+        # Role-specific copy: a version on the email itself wins, then the shared role_variants, then standard.
+        role = track.get("contact_role") or "unknown"
+        var = (tpl.get("variants") or {}).get(role)
+        if var is None:
+            var = ((self.content.get("role_variants") or {}).get(role) or {}).get(touch_key)
+        variant = "standard"
+        if var:
+            if var.get("skip"):
+                return Rendered("", "", [], skip=True, variant=role)
+            tpl = {**tpl, **var}
+            variant = role
         ctx = self.context(track)
         # application blocks (Micro-Metallizer day-30 tips, etc.)
         blocks_cfg = ((self.content.get("blocks") or {}).get(seg) or {}).get(touch_key) or {}
@@ -106,7 +122,7 @@ class Renderer:
         body = re.sub(r"\n{3,}", "\n\n", body).strip() + "\n"
         unverified = VERIFY_RE.findall(subject + body)
         markers = re.findall(r"\[\[\s*VERIFY[^\]]*\]\]", subject + body, flags=re.I)
-        return Rendered(subject, body, markers or unverified)
+        return Rendered(subject, body, markers or unverified, variant=variant)
 
 
 def body_to_html(body: str) -> str:

@@ -36,13 +36,17 @@ class FakeQBO:
                                "MetaData": {"LastUpdatedTime": "2026-01-01T00:00:00-08:00"}}
         return cid
 
-    def order(self, cid, txn_date, lines, kind="Invoice", ship_date=None, country=None, note=None, tid=None):
+    def order(self, cid, txn_date, lines, kind="Invoice", ship_date=None, country=None, note=None, tid=None,
+              ship=None, po=None):
         tid = tid or str(next(self._ids))
         total = sum(q * p for _, q, p in lines)
         self.txns[kind][tid] = {
             "Id": tid, "CustomerRef": {"value": cid}, "TxnDate": str(txn_date),
             "ShipDate": str(ship_date) if ship_date else None, "TotalAmt": total, "PrivateNote": note,
-            "ShipAddr": {"Country": country} if country else None,
+            "ShipAddr": ({**({"Country": country} if country else {}),
+                          **{f"Line{i + 1}": v for i, v in enumerate(ship or [])}} or None),
+            "CustomField": [{"DefinitionId": "1", "Name": "P.O. Number", "Type": "StringType",
+                             "StringValue": po}] if po else [],
             "Line": [{"DetailType": "SalesItemLineDetail", "Amount": q * p,
                       "SalesItemLineDetail": {"ItemRef": {"value": f"i-{sku}", "name": sku}, "Qty": q}}
                      for sku, q, p in lines],

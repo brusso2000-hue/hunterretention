@@ -27,6 +27,8 @@ class Account:
     emails: list[str] = field(default_factory=list)          # personal (non-role) addresses, best first
     role_emails: list[str] = field(default_factory=list)
     domains: set[str] = field(default_factory=set)
+    contact_role: str = "unknown"            # user | buyer | owner_operator | unknown
+    contact_source: str = "qbo"
 
     @property
     def contact_email(self) -> str | None:
