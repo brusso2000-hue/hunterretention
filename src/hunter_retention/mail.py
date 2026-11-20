@@ -72,3 +72,28 @@ class GraphMail:
 
     def by_text(self, text: str, since: date) -> list[MailMessage]:
         return self._search(text.replace('"', " "), since)
+
+    def check(self) -> list[dict]:
+        """Diagnostics: can we read each mailbox, and does search work? Returns status and error codes only,
+        never message content."""
+        out = []
+        auth = self._auth()
+        plain = {"Authorization": auth["Authorization"]}
+        tests = [("list one message", plain, {"$top": 1, "$select": "receivedDateTime"}),
+                 ("search, plain headers", plain, {"$search": '"participants:hunterproducts.com"', "$top": 1,
+                                                   "$select": "receivedDateTime"}),
+                 ("search, as the lookup sends it", auth, {"$search": '"participants:hunterproducts.com"',
+                                                           "$top": self.max, "$select": FIELDS})]
+        for box in self.mailboxes:
+            for name, headers, params in tests:
+                r = self.session.get(f"{GRAPH}/users/{box}/messages", headers=headers, params=params, timeout=60)
+                err = {}
+                if r.status_code >= 400:
+                    try:
+                        err = (r.json() or {}).get("error") or {}
+                    except ValueError:
+                        err = {"message": r.text[:200]}
+                out.append({"mailbox": box, "test": name, "status": r.status_code, "code": err.get("code"),
+                            "message": (err.get("message") or "")[:240],
+                            "found": len(r.json().get("value", [])) if r.status_code < 400 else None})
+        return out

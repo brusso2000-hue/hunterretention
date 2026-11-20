@@ -75,6 +75,19 @@ def cmd_contacts(cfg, args) -> int:
     from .runner import local_today
     from .world import first_purchase, load_world
 
+    if args.action == "mailcheck":
+        mail = _mail(cfg)
+        if not mail:
+            print("Microsoft app not set up: need MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET and contacts.mailboxes")
+            return 1
+        try:
+            rows = mail.check()
+        except Exception as exc:
+            print(f"Could not sign in to Microsoft: {type(exc).__name__}: {str(exc)[:400]}")
+            return 1
+        for r in rows:
+            print(f"MAILCHECK {r['mailbox']:<28} {r['test']:<32} {r['status']} found={r['found']} {r['code'] or ''} {r['message']}")
+        return 0
     db = _db(cfg)
     if args.action == "set":
         if not (args.account and args.email):
@@ -382,7 +395,7 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--role", choices=["user", "buyer", "owner_operator", "unknown"]); s.set_defaults(fn=cmd_preview)
     s = sub.add_parser("content-lint"); s.set_defaults(fn=cmd_content_lint)
     s = sub.add_parser("contacts", help="contact lookup: preview | list | set")
-    s.add_argument("action", choices=["preview", "list", "set"])
+    s.add_argument("action", choices=["preview", "list", "set", "mailcheck"])
     s.add_argument("--days", type=int, default=730); s.add_argument("--out")
     s.add_argument("--account"); s.add_argument("--email"); s.add_argument("--first"); s.add_argument("--last")
     s.add_argument("--role", choices=["user", "buyer", "owner_operator", "unknown"])

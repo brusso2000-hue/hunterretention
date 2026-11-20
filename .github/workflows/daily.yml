@@ -59,7 +59,8 @@ jobs:
           ARGS=""
           if [ "${{ inputs.full_sync }}" = "true" ]; then ARGS="--full-sync"; fi
           hunter-retention run $ARGS
-          if [ -n "$PREVIEW_DAYS" ]; then hunter-retention contacts preview --days "$PREVIEW_DAYS"; fi
+          if [ "$PREVIEW_DAYS" = "mailcheck" ]; then hunter-retention contacts mailcheck || true
+          elif [ -n "$PREVIEW_DAYS" ]; then hunter-retention contacts preview --days "$PREVIEW_DAYS"; fi
       - name: Upload report
         if: always()
         uses: actions/upload-artifact@v4
