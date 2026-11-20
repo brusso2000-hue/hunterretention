@@ -199,3 +199,16 @@ def test_intuit_tid_captured_on_errors():
     with pytest.raises(ApiError) as e:
         request_with_retry(S(), "GET", "https://x", sleep=lambda s: None)
     assert e.value.intuit_tid == "1-abc-123" and "1-abc-123" in str(e.value)
+
+
+def test_test_send_versions_and_own_domain_guard(cfg, capsys):
+    from types import SimpleNamespace
+    from hunter_retention.cli import cmd_test_send, test_versions
+    core = test_versions(cfg, "core")
+    assert len(test_versions(cfg, "smoke")) == 1
+    assert {t for _, t, _ in core} == {"e1", "e2", "e3", "e4", "r1", "r2", "r3"}
+    assert len({tag for tag, _, _ in core}) == len(core)          # one plus-address per version
+    assert len(test_versions(cfg, "all")) > len(core)
+    cfg.settings["sandbox"]["redirect_to"] = "someone@customer.com"
+    assert cmd_test_send(cfg, SimpleNamespace(set="smoke", format=None, print_only=True)) == 1
+    assert "refusing" in capsys.readouterr().out

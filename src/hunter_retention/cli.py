@@ -193,7 +193,7 @@ def cmd_setup_apollo(cfg, args) -> int:
             c.execute(delete(apollo_fields).where(apollo_fields.c.label == label))
             c.execute(insert(apollo_fields).values(label=label, field_id=f["id"], type=f.get("type") or ftype))
         print(f"  ok {label} -> {f['id']}")
-    print("\nNext: create the four one-step sequences described in docs/SETUP.md and put their ids in "
+    print("\nNext: create the seven one-step sequences described in docs/SETUP.md and put their ids in "
           "config/settings.yaml under apollo.sequences.")
     return 0
 
@@ -369,6 +369,88 @@ def sample_track(cfg, segment: str, app: str | None) -> dict:
             "reorder_status": "none", "email": "jordan@example.com"}
 
 
+TEST_CORE = [("A", "gold", "e1", "user"), ("A", "gold", "e1", "buyer"), ("A", "gold", "e2", "user"),
+             ("A", "gold+nickel", "e3", "user"), ("A", "gold", "e3", "buyer"), ("A", "gold", "e3", "owner_operator"),
+             ("A", "gold", "e4", "user"), ("A", "gold", "e4", "buyer"),
+             ("B", None, "e1", "user"), ("B", None, "e2", "user"), ("B", None, "e3", "user"), ("B", None, "e4", "buyer"),
+             ("C", None, "e1", "user"), ("C", None, "e3", "user"), ("D", "carbitron", "e1", "user"),
+             ("R", None, "r1", "user"), ("R", None, "r1", "buyer"), ("R", None, "r2", "user"), ("R", None, "r3", "user")]
+
+
+def test_versions(cfg, which: str) -> list[tuple[str, str, object]]:
+    """(tag, touch_key, rendered) for the test send. smoke = one email, core = each version once, all = every distinct email."""
+    r = Renderer(cfg)
+    if which == "all":
+        segs = [("A", a) for a in ("gold", "gold+nickel", None)] + [("B", None), ("C", None), ("D", "carbitron"),
+                                                                   ("D", "micro_jet"), ("D", "micro_metallizer"), ("R", None)]
+        combos = [(seg, app, t["key"], role) for seg, app in segs for t in (cfg.lc(f"tracks.{seg}.touches", []) or [])
+                  for role in ("user", "buyer", "owner_operator")]
+    else:
+        combos = TEST_CORE[:1] if which == "smoke" else TEST_CORE
+    out, seen = [], set()
+    for seg, app, touch, role in combos:
+        tr = sample_track(cfg, seg, app)
+        tr["contact_role"] = role
+        tr.setdefault("order_summary", {}).setdefault("po_number", "613707")
+        rendered = r.render(tr, touch)
+        if rendered.skip or (rendered.subject, rendered.body) in seen:
+            continue
+        seen.add((rendered.subject, rendered.body))
+        tag = "-".join(x for x in (seg, (app or "").replace("+", "").replace("_", ""), touch, role.split("_")[0]) if x).lower()
+        out.append((tag, touch, rendered))
+    return out
+
+
+def cmd_test_send(cfg, args) -> int:
+    """Send sample emails to our own inbox through the real Apollo sequences. Never touches a customer:
+    every recipient is a plus-address of sandbox.redirect_to, and that address must be on one of our own domains."""
+    from .render import body_to_html
+    to = (cfg.s("sandbox.redirect_to") or "").lower()
+    own = {d.lower() for d in (cfg.s("contacts.own_domains", []) or [])}
+    if "@" not in to or to.split("@")[1] not in own:
+        print(f"refusing: sandbox.redirect_to ({to!r}) is not on one of our own domains {sorted(own)}"); return 1
+    api = _apollo(cfg)
+    if api is None:
+        print("APOLLO_API_KEY not set"); return 1
+    db = _db(cfg)
+    with db.engine.begin() as c:
+        ids = {r[0]: r[1] for r in c.execute(select(apollo_fields.c.label, apollo_fields.c.field_id))}
+    seqs = cfg.s("apollo.sequences", {}) or {}
+    missing = [k for k in ("hp_subject", "hp_body") if k not in ids]
+    if missing:
+        print(f"Apollo fields missing: {missing}. Run setup-apollo --create first."); return 1
+    local, domain = to.split("@")
+    formats = ["text", "html"] if args.format == "both" else [args.format or cfg.s("apollo.body_format", "text")]
+    sent = 0
+    for tag, touch, rendered in test_versions(cfg, args.set):
+        seq = seqs.get(touch)
+        if not seq:
+            print(f"  skip {tag}: no sequence id for {touch}"); continue
+        for fmt in formats:
+            addr = f"{local}+{tag}{'-' + fmt if len(formats) > 1 else ''}@{domain}"
+            body = body_to_html(rendered.body) if fmt == "html" else rendered.body
+            subject = f"[TEST {tag}{' ' + fmt if len(formats) > 1 else ''}] {rendered.subject}"
+            payload = {"first_name": "Test", "last_name": tag, "email": addr, "organization_name": "Hunter Products",
+                       "typed_custom_fields": {ids["hp_subject"]: subject, ids["hp_body"]: body}}
+            if args.print_only:
+                print(f"  would send {touch} -> {addr}: {subject}"); continue
+            contact = api.find_contact(addr)
+            if contact:
+                api.update_contact(contact["id"], payload); cid = contact["id"]
+                try:
+                    api.remove_from_sequence([seq], cid)
+                except Exception:
+                    pass
+            else:
+                cid = api.create_contact(payload)["id"]
+            api.add_to_sequence(seq, cid, cfg.s("apollo.send_from_email_account_id"))
+            db.log("test_send", f"Test {tag} ({fmt}) -> {addr}", data={"subject": subject, "sequence": seq})
+            print(f"  queued {touch} -> {addr}: {subject}")
+            sent += 1
+    print(f"\n{sent} test email(s) queued in Apollo for {to} (plus-addresses). Nothing went to a customer.")
+    return 0
+
+
 def cmd_report(cfg, args) -> int:
     from .report import write_report
     from .world import load_world
@@ -419,6 +501,10 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--account"); s.add_argument("--email"); s.add_argument("--first"); s.add_argument("--last")
     s.add_argument("--role", choices=["user", "buyer", "owner_operator", "unknown"])
     s.set_defaults(fn=cmd_contacts)
+    s = sub.add_parser("test-send", help="send sample emails to our own inbox through the Apollo sequences")
+    s.add_argument("--set", choices=["smoke", "core", "all"], default="smoke")
+    s.add_argument("--format", choices=["text", "html", "both"]); s.add_argument("--print-only", action="store_true")
+    s.set_defaults(fn=cmd_test_send)
     s = sub.add_parser("report"); s.add_argument("--today"); s.add_argument("--out"); s.set_defaults(fn=cmd_report)
 
     args = p.parse_args(argv)

@@ -59,6 +59,13 @@ jobs:
           ARGS=""
           if [ "${{ inputs.full_sync }}" = "true" ]; then ARGS="--full-sync"; fi
           # "simulate:N" is a self-contained what-if run: it never writes to the database, so skip the real run.
+          # One-off setup helpers. Neither runs the daily job.
+          #   setup-apollo      create/find the Apollo custom fields and store their ids
+          #   test-send:SET[:FORMAT]  sample emails to our own inbox only (SET = smoke | core | all, FORMAT = text | html | both)
+          case "$PREVIEW_DAYS" in
+            setup-apollo) hunter-retention setup-apollo --create; exit 0;;
+            test-send:*) IFS=: read -r _ SET FMT <<< "$PREVIEW_DAYS"; hunter-retention test-send --set "$SET" ${FMT:+--format "$FMT"}; exit 0;;
+          esac
           case "$PREVIEW_DAYS" in simulate:*) hunter-retention simulate --days-back "${PREVIEW_DAYS#simulate:}"; exit 0;; esac
           hunter-retention run $ARGS
           if [ "$PREVIEW_DAYS" = "mailcheck" ]; then hunter-retention contacts mailcheck || true
