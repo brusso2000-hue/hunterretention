@@ -5,7 +5,7 @@ from datetime import date
 
 from sqlalchemy import select
 
-from hunter_retention.contacts import (MailMessage, score_inbox, set_manual_contact, ship_to_names, signature_title,
+from hunter_retention.contacts import (MailMessage, name_matches_email, score_inbox, set_manual_contact, ship_to_names, signature_title,
                                        split_name, title_role)
 from hunter_retention.db import contacts, events, review_queue
 from hunter_retention.render import Renderer
@@ -68,6 +68,29 @@ def test_ship_to_names_reads_attn_lines_and_person_lines_but_not_departments():
                            (("Moxtek Inc", "452 West 1260 North"), "Moxtek Inc"),
                            (("Winchester Interconnect Corp", "c/o Collectron Int'l Mgmt"), "Winchester Electronics")]:
         assert ship_to_names(lines, company) == [], lines
+
+
+def test_ship_to_names_rejects_business_and_place_lines_seen_in_real_data():
+    cases = [(("Northfield Medical", "x"), "Agiliti Surgical Equipment Repair", {"agilitihealth.com"}),
+             (("Vallen Andover", "x"), "Vallen Distribution Inc", {"vallen.com"}),
+             (("Logus Mfg", "x"), "Logus Microwave Corporation", {"logus.com"}),
+             (("Az Ic.", "Az Pinc"), "AZ Prototype Inc.", {"azpinc.com"}),
+             (("Protech Mn", "x"), "Pro-Tech Inc.", {"protechmn.com"}),
+             (("Ceva Freight", "x"), "Smooth N Sleek SDN BHD", {"snspcb.com"}),
+             (("Vision House", "Bandeath Estate"), "V Tech Smt Ltd", {"vtech-smt.co.uk"})]
+    for lines, company, domains in cases:
+        assert ship_to_names(lines, company, domains) == [], lines
+    assert ship_to_names(("Ty Le", "Green Circuits Inc."), "Green Circuits Inc.", {"greencircuits.com"}) == [("Ty", "Le")]
+
+
+def test_name_matches_email():
+    for first, last, email in [("Thomas", "White", "thomas.a.white@lmco.com"), ("Lance", "Rininger", "lancerininger@ftgcorp.com"),
+                               ("Robert", "Trent", "rtrent@kimco.net"), ("Joseph", "Baker", "joe_baker@steris.com"),
+                               ("Matt", "Kostyk", "matt@esteemmfg.co"), ("Paul", None, "paul@svmicro.com")]:
+        assert name_matches_email(first, last, email), email
+    for first, last, email in [("Katherine", "Levin", "kmlange@preferredind.com"), ("Jody", "Barnes", "brenda.jaure@advancedpcb.com"),
+                               ("Paul", None, "pauline.k@x.com"), ("Megan", "Gardner", "anita.schober@ttmtech.com")]:
+        assert not name_matches_email(first, last, email), email
 
 
 def test_titles_and_names():
@@ -207,6 +230,32 @@ def test_person_already_in_quickbooks_is_kept_and_upgraded_by_inbox_evidence(h):
     h.run(D(2026, 1, 2), mail=mail)
     tr = h.track("acct:30")
     assert tr["email"] == "jane@deltalabs.com" and tr["contact_role"] == "buyer"
+
+
+def test_quickbooks_person_named_on_the_shipping_label_is_a_user_with_no_apollo_call(tmp_path):
+    h = Harness(tmp_path).strip_verify()
+    h.apollo = PeopleApollo()
+    h.qbo.customer("40", "Kimco Design", "rtrent@kimco.net, ap@kimco.net")
+    h.qbo.order("40", D(2026, 1, 1), GOLD_KIT, ship_date=D(2026, 1, 1), ship=["Robert Trent", "Kimco Design"])
+    h.run(D(2026, 1, 2))
+    tr = h.track("acct:40")
+    assert tr["contact_role"] == "user" and tr["email"] == "rtrent@kimco.net" and tr["first_name"] == "Robert"
+    assert h.apollo.match_calls == 0
+
+
+def test_shared_purchasing_mailbox_is_treated_as_a_buyer(h):
+    h.qbo.customer("41", "Ampel Inc.", "purchasing@ampelinc.com", given="Andy")
+    h.qbo.order("41", D(2026, 1, 1), GOLD_KIT, ship_date=D(2026, 1, 1))
+    h.run(D(2026, 1, 2))
+    tr = h.track("acct:41")
+    assert tr["contact_role"] == "buyer" and tr["email"] == "purchasing@ampelinc.com"
+
+
+def test_personal_mailbox_at_a_company_with_its_own_domain_is_not_an_owner_operator(h):
+    h.qbo.customer("42", "Big Medical Inc.", "someone@gmail.com, big_ap@bigmedical.com")
+    h.qbo.order("42", D(2026, 1, 1), GOLD_KIT, ship_date=D(2026, 1, 1))
+    h.run(D(2026, 1, 2))
+    assert h.track("acct:42")["contact_role"] == "unknown"
 
 
 def test_owner_operator_is_detected_from_a_personal_mailbox(h):

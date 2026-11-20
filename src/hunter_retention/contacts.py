@@ -64,7 +64,14 @@ _NOT_A_NAME = {
     "center", "centre", "po", "box", "road", "street", "drive", "avenue", "blvd", "lane", "way", "inc", "llc",
     "corp", "ltd", "co", "company", "electronics", "systems", "technologies", "manufacturing", "circuits",
     "industries", "group", "international", "north", "south", "east", "west", "usa", "america",
+    "medical", "microelectronics", "crescent", "city", "solutions", "interconnect", "freight", "crib", "house",
+    "estate", "zone", "place", "builiding", "mfg", "laboratories", "labs", "fasteners", "circuit", "source",
+    "avenida", "calle", "real", "san", "santa", "saint", "fort", "park", "industrial", "technology", "tech",
+    "sales", "service", "services", "design", "tool", "tools", "products", "supply", "trading", "distribution",
+    "qc", "qa", "tx", "ph", "il", "mn", "ca", "ny", "andover", "the", "and", "of", "for", "sdn", "bhd", "pte",
 }
+# A shared purchasing mailbox is a buyer, not a person who uses the product.
+PURCHASING_MAILBOX = re.compile(r"^(gc)?(purchas\w*|procurement|buyers?|buying|compras|supplier|orders?)[\d._-]*\w{0,8}$", re.I)
 _ATTN = re.compile(r"^\s*(?:attn|attention)\b[\s:.\-]*(.+)$", re.I)
 _CARE_OF = re.compile(r"^\s*c/o\b", re.I)          # "c/o" names a forwarding company, not a person
 _NAME_TOKEN = re.compile(r"^[A-Za-z][A-Za-z'\-]+\.?$")
@@ -136,10 +143,26 @@ def split_name(name: str | None) -> tuple[str | None, str | None]:
     return parts[0].title(), parts[-1].title()
 
 
-def ship_to_names(ship_lines: tuple[str, ...] | list[str], company: str | None) -> list[tuple[str, str | None]]:
+def name_matches_email(first: str | None, last: str | None, email: str) -> bool:
+    """'Thomas White' ~ thomas.a.white@ / twhite@ / thomas@. Used to tie a shipping-label name to an address."""
+    local = re.sub(r"[^a-z]", "", email.split("@", 1)[0].lower())
+    f, l = (first or "").lower(), re.sub(r"[^a-z]", "", (last or "").lower())
+    if not f or not local:
+        return False
+    if l:
+        if local in (f + l, l + f, f[0] + l, l + f[0], f + l[0]):
+            return True
+        if len(l) >= 4 and l in local and local[0] in (f[0], l[0]):
+            return True
+    return local == f
+
+
+def ship_to_names(ship_lines: tuple[str, ...] | list[str], company: str | None,
+                  domains: set[str] | None = None) -> list[tuple[str, str | None]]:
     """People named on a shipping label: 'Attn: Paul' -> ('Paul', None); 'Timothy Auman' -> ('Timothy', 'Auman')."""
     comp = normalize_company(company)
     comp_words = set(comp.split())
+    roots = {d.split(".")[0] for d in (domains or set())}
     out: list[tuple[str, str | None]] = []
 
     def consider(text: str, attn: bool) -> None:
@@ -149,6 +172,12 @@ def ship_to_names(ship_lines: tuple[str, ...] | list[str], company: str | None) 
             return
         low = [t.lower().strip(".") for t in tokens]
         if any(t in _NOT_A_NAME for t in low):
+            return
+        if any(t.endswith(".") and len(t) > 2 for t in tokens):          # "Az Ic." is an abbreviation, not a name
+            return
+        # a line that starts with the company name or its web domain names the business, not a person
+        # ("Vallen Andover"). A surname that matches the company is fine ("Timothy Auman" at Auman Machine).
+        if not attn and (low[0] in comp_words or (len(low[0]) >= 3 and any(low[0] in r for r in roots))):
             return
         if not attn:
             # an unlabeled line must look like "First Last" and must not be the company name
@@ -169,9 +198,11 @@ def ship_to_names(ship_lines: tuple[str, ...] | list[str], company: str | None) 
     return out
 
 
-def looks_like_owner(last_name: str | None, email: str, company: str | None, freemail: set[str]) -> bool:
-    """One person who orders and uses the product: a personal mailbox, or their surname is the company name."""
-    if email_domain(email) in freemail:
+def looks_like_owner(last_name: str | None, email: str, company: str | None, freemail: set[str],
+                     has_company_domain: bool = False) -> bool:
+    """One person who orders and uses the product: a personal mailbox at a business with no company email,
+    or their surname is the company name."""
+    if email_domain(email) in freemail and not has_company_domain:
         return True
     comp_words = set(normalize_company(company).split())
     return bool(last_name) and last_name.lower() in comp_words
@@ -335,7 +366,8 @@ class ContactResolver:
             # never leave the customer's own domain, except for addresses QuickBooks itself holds
             if c.source != "qbo" and email_domain(e) not in domains:
                 return
-            if looks_like_owner(c.last_name, e, acct.company, self.freemail) and c.role in ("unknown", "user"):
+            if looks_like_owner(c.last_name, e, acct.company, self.freemail, bool(domains)) \
+                    and c.role in ("unknown", "user"):
                 c.role = "owner_operator"
                 c.evidence.append("personal mailbox or surname matches the company: orders and uses it")
                 c.score = min(95, c.score + 15)
@@ -354,23 +386,36 @@ class ContactResolver:
                 best.role = other.role
             cands[e] = best
 
-        # 1. QuickBooks
-        qbo_people = list(acct.emails)
-        for e in qbo_people:
-            first, last = self._qbo_name_for(acct, e, single=len(qbo_people) == 1)
-            add(Candidate(e, first, last, None, "unknown", "qbo", 55 + (5 if first else 0),
-                          ["on the QuickBooks customer record"]))
-        qbo_had = "person" if qbo_people else ("role_only" if acct.role_emails else "none")
-
         orders = list(fp.orders) if fp else []
         latest = (self.world.orders.get(acct.key) or [None])[-1]
         if latest and latest not in orders:
             orders.append(latest)
         label_names = []
         for o in orders:
-            for n in ship_to_names(o.ship_lines, acct.company):
+            for n in ship_to_names(o.ship_lines, acct.company, domains):
                 if n not in label_names:
                     label_names.append(n)
+
+        # 1. QuickBooks. An address whose owner is also named on the shipping label received the box: a user.
+        qbo_people = list(acct.emails)
+        for e in qbo_people:
+            first, last = self._qbo_name_for(acct, e, single=len(qbo_people) == 1)
+            cand = Candidate(e, first, last, None, "unknown", "qbo", 55 + (5 if first else 0),
+                             ["on the QuickBooks customer record"])
+            if PURCHASING_MAILBOX.match(e.split("@", 1)[0]):
+                cand.role, cand.first_name, cand.last_name = "buyer", None, None
+                cand.evidence.append("shared purchasing mailbox")
+            else:
+                for lf, ll in label_names:
+                    if name_matches_email(lf, ll, e):
+                        cand.role, cand.score = "user", cand.score + 20
+                        cand.first_name, cand.last_name = cand.first_name or lf, cand.last_name or ll
+                        cand.evidence.append("named on the shipping label")
+                        break
+            add(cand)
+        qbo_had = "person" if qbo_people else ("role_only" if acct.role_emails else "none")
+        # label names we already hold an address for need no lookup
+        label_names = [n for n in label_names if not any(name_matches_email(n[0], n[1], e) for e in qbo_people)]
         since = self.today - timedelta(days=self.lookback)
 
         # 2. our own inbox
