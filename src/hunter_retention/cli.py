@@ -451,6 +451,16 @@ def cmd_test_send(cfg, args) -> int:
     return 0
 
 
+def cmd_alert_test(cfg, args) -> int:
+    url = cfg.secrets.alert_webhook_url
+    if not url:
+        print("ALERT_WEBHOOK_URL is NOT set: failures would only show in the GitHub Actions log."); return 1
+    import requests
+    resp = requests.post(url, json={"text": "Hunter retention: test alert. If you can read this, failure alerts reach you."}, timeout=20)
+    print(f"alert webhook answered HTTP {resp.status_code}")
+    return 0 if resp.status_code < 300 else 1
+
+
 def cmd_report(cfg, args) -> int:
     from .report import write_report
     from .world import load_world
@@ -505,6 +515,7 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--set", choices=["smoke", "core", "all"], default="smoke")
     s.add_argument("--format", choices=["text", "html", "both"]); s.add_argument("--print-only", action="store_true")
     s.set_defaults(fn=cmd_test_send)
+    s = sub.add_parser("alert-test", help="post a test message to the alert webhook"); s.set_defaults(fn=cmd_alert_test)
     s = sub.add_parser("report"); s.add_argument("--today"); s.add_argument("--out"); s.set_defaults(fn=cmd_report)
 
     args = p.parse_args(argv)

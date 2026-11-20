@@ -1,7 +1,7 @@
 """Renders email copy from content/emails.yaml with real purchase data.
 
 The rendered subject/body are written to Apollo custom fields (hp_subject, hp_body) right before
-enrollment; the Apollo sequence step template is just {{hp_subject}} / {{hp_body}}. Copy therefore lives in
+enrollment; the Apollo sequence step template is just {{contact.hp_subject}} / {{contact.hp_body}}. Copy therefore lives in
 version control, and Apollo never holds stale or unapproved text.
 
 Safety: any unresolved "[[VERIFY ...]]" marker or "{{" left in the output blocks a live send.

@@ -22,16 +22,16 @@ qbo:
 apollo:
   # hunter@hunterproducts.com (Microsoft Exchange) - existing customers get the main domain, not the cold .co domain
   send_from_email_account_id: "69b4578fbbbdb70011b7044a"
-  # One-step sequences, step 1 = automatic email, wait 0 days, subject {{hp_subject}}, body {{hp_body}}.
-  # Fill in after creating them (docs/SETUP.md, step 4).
+  # One-step sequences, step 1 = automatic email, wait 0 days, subject {{contact.hp_subject}}, body {{contact.hp_body}}.
+  # Created 2026-11-20, named "HP Lifecycle E1..E4 / R1..R3 (hunter@)" in Apollo.
   sequences:
-    e1: ""
-    e2: ""
-    e3: ""
-    e4: ""
-    r1: ""       # reorder flow, same one-step setup
-    r2: ""
-    r3: ""
+    e1: "6b00b1af5b7c0100109da430"
+    e2: "6b00b1b0ebe694001487bf55"
+    e3: "6b00b1b070587c000c5a12fb"
+    e4: "6b00b1b1200376001023110e"
+    r1: "6b00b1b2ebe6940018773516"       # reorder flow, same one-step setup
+    r2: "6b00b1b272cefe0013206417"
+    r3: "6b00b1b3f4d064000cc4ba67"
   contact_label: "HP Lifecycle"
   # text: hp_body is a multi-line text field inserted as-is. html: paragraphs converted to <p>/<br>.
   # Confirm which renders correctly with your first sandbox send (docs/SETUP.md step 6).

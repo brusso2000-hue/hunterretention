@@ -54,7 +54,7 @@ flowchart LR
 
 **The backend owns the schedule. Apollo only sends.**
 
-* Four one-step Apollo sequences (`e1`..`e4`), each one automatic email with `wait 0 days`, subject `{{hp_subject}}`, body `{{hp_body}}`.
+* Four one-step Apollo sequences (`e1`..`e4`), each one automatic email with `wait 0 days`, subject `{{contact.hp_subject}}`, body `{{contact.hp_body}}`.
 * On the day a touch is due, the dispatcher re-checks everything, renders the copy from the customer's real order, writes it into the contact's custom fields and enrolls them. Apollo sends that day inside its schedule window.
 * Nothing waits inside Apollo for weeks, so a reorder, refund or unsubscribe can never "miss" a removal call.
 * All copy lives in `content/emails.yaml` under version control. Apollo never holds stale or unapproved text.

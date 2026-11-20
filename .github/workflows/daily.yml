@@ -64,6 +64,7 @@ jobs:
           #   test-send:SET[:FORMAT]  sample emails to our own inbox only (SET = smoke | core | all, FORMAT = text | html | both)
           case "$PREVIEW_DAYS" in
             setup-apollo) hunter-retention setup-apollo --create; exit 0;;
+            alert-test) hunter-retention alert-test; exit 0;;
             test-send:*) IFS=: read -r _ SET FMT <<< "$PREVIEW_DAYS"; hunter-retention test-send --set "$SET" ${FMT:+--format "$FMT"}; exit 0;;
           esac
           case "$PREVIEW_DAYS" in simulate:*) hunter-retention simulate --days-back "${PREVIEW_DAYS#simulate:}"; exit 0;; esac

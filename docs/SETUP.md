@@ -39,7 +39,7 @@ Create four sequences, identical except the name:
 | HP Lifecycle e3 (replenish) | same |
 | HP Lifecycle e4 (check-in) | same |
 
-Each step: subject `{{hp_subject}}`, body `{{hp_body}}` (insert both through the `{ }` custom-variable menu). No signature (the body has one). Settings: send from **hunter@hunterproducts.com**, your existing weekday schedule, "mark finished if reply" on, open tracking off (it hurts deliverability and opens are unreliable anyway). Approve/activate each one.
+Each step: subject `{{contact.hp_subject}}`, body `{{contact.hp_body}}` (insert both through the `{ }` custom-variable menu). No signature (the body has one). Settings: send from **hunter@hunterproducts.com**, your existing weekday schedule, "mark finished if reply" on, open tracking off (it hurts deliverability and opens are unreliable anyway). Approve/activate each one.
 
 Copy the four sequence ids (from the URL `.../sequences/<id>`) into `config/settings.yaml` under `apollo.sequences` and commit.
 
