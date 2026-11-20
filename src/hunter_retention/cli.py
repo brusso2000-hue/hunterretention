@@ -56,9 +56,15 @@ def cmd_run(cfg, args) -> int:
     today = date.fromisoformat(args.today) if args.today else None
     qbo = None if args.skip_sync else _qbo(cfg, db)
     apollo = _apollo(cfg) if cfg.mode != "dry_run" else None
-    stats = run_daily(cfg, db, qbo, apollo, Alerter(cfg.secrets.alert_webhook_url), today=today,
+    alerter = Alerter(cfg.secrets.alert_webhook_url)
+    stats = run_daily(cfg, db, qbo, apollo, alerter, today=today,
                       skip_sync=args.skip_sync, force_full_sync=args.full_sync, mail=_mail(cfg))
     print(json.dumps(stats, indent=2, default=str))
+    if alerter.sent:
+        # The work above is finished and saved. Ending as "failed" makes GitHub email the repo owner,
+        # so a problem is never only visible in a log nobody reads.
+        print("\nALERTS RAISED THIS RUN:\n" + "\n".join(alerter.sent))
+        return 3
     return 0
 
 
