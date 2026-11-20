@@ -50,24 +50,22 @@ tracks:
         {{ sender_phone }}
 
     e2:
-      subject: "{% if application_labels %}A few {{ application_labels | join(' and ') }} plating tips{% else %}A few plating tips{% endif %}"
+      subject: "One month in with your {{ product }}"
       body: |
         {{ greeting }}
 
-        It's been about a month since your {{ product }} order, so here are a few notes{% if application_labels %} for {{ application_labels | join(' and ') }} work{% endif %}.
+        It's been about a month since your {{ product }} order.
 
-        {% for b in blocks %}
-        {{ b }}
-
-        {% endfor %}
         {% if consumables %}
-        When you need more, here's what you ordered:
+        Here's what you ordered, in case you need more:
         {% for c in consumables %}
         - {{ c.display }} ({{ c.sku }}){% if c.url %}: {{ c.url }}{% endif %}
 
         {% endfor %}
-
+        {% else %}
+        If you need more pens, they're here: {{ store_url }}
         {% endif %}
+
         Questions on a specific part or substrate? Reply here, or send details through this form: {{ tech_url }}
 
         Best,
@@ -427,36 +425,6 @@ role_variants:
 # Tip blocks inserted into e2 by application (A) or product line (B, C).
 # A customer buying two metals gets both blocks (max_application_blocks).
 blocks:
-  A:
-    e2:
-      gold: |
-        Gold:
-        - Gold over copper or brass usually needs a nickel barrier underneath. [[VERIFY: confirm Hunter recommends nickel first under gold, and when it can be skipped]]
-        - [[VERIFY: gold tip, e.g. prep sequence with the absorbent/degreaser pen before gold]]
-        - [[VERIFY: when to use the 24K Gold Heavy Duty pen (PL-1016) instead of the standard 24K pen (PL-1003)]]
-      nickel: |
-        Nickel:
-        - Nickel is commonly used as a barrier layer, for example under gold on contacts.
-        - [[VERIFY: nickel tip, e.g. prep and stroke technique for an even deposit]]
-        - [[VERIFY: when to use black nickel (PL-1007) or nickel heavy duty (PL-1020)]]
-      tin: |
-        Tin:
-        - Tin pens are used to restore solderability on pads and leads.
-        - [[VERIFY: tin tip, e.g. surface prep before tin and how to check coverage]]
-      silver: |
-        Silver:
-        - [[VERIFY: silver tip 1 (typical use and prep)]]
-        - [[VERIFY: silver tip 2 (when to use Silver Heavy Duty PL-1018)]]
-      copper: |
-        Copper:
-        - [[VERIFY: copper tip 1 (typical use, e.g. trace or pad build-up, and prep)]]
-        - [[VERIFY: copper tip 2 (when to use Copper Heavy Duty PL-1019)]]
-      other: |
-        - [[VERIFY: tips for specialty pens (rhodium, palladium, zinc, chrome color)]]
-      general: |
-        - Prep matters most. Start with a clean, degreased surface; the absorbent/degreaser pen (PL-1002) is made for that step.
-        - Wipe with a clean cloth between steps and at the end. Don't rinse in water.
-        - [[VERIFY: one more general Micro-Metallizer technique tip]]
   B:
     e2:
       carbitron: |
