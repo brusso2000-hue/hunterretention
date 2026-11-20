@@ -58,6 +58,8 @@ jobs:
         run: |
           ARGS=""
           if [ "${{ inputs.full_sync }}" = "true" ]; then ARGS="--full-sync"; fi
+          # "simulate:N" is a self-contained what-if run: it never writes to the database, so skip the real run.
+          case "$PREVIEW_DAYS" in simulate:*) hunter-retention simulate --days-back "${PREVIEW_DAYS#simulate:}"; exit 0;; esac
           hunter-retention run $ARGS
           if [ "$PREVIEW_DAYS" = "mailcheck" ]; then hunter-retention contacts mailcheck || true
           elif [ -n "$PREVIEW_DAYS" ]; then hunter-retention contacts preview --days "$PREVIEW_DAYS" --max-accounts 110; fi

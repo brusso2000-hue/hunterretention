@@ -86,6 +86,9 @@ class Renderer:
             "applications": apps,
             "application_labels": [app_labels.get(a, a) for a in apps],
             "first_order_date": track.get("first_order_date"),
+            "last_order_date": _long_date((track.get("order_summary") or {}).get("last_order_date")),
+            "last_order_month": _month((track.get("order_summary") or {}).get("last_order_date")),
+            "store_home": "https://hunterproducts.com/store/",
             "sender_name": sender.get("name", ""),
             "sender_title": sender.get("title", ""),
             "sender_company": sender.get("company", "Hunter Products"),
@@ -138,3 +141,20 @@ def body_to_html(body: str) -> str:
     """Optional: for Apollo setups where a plain-text custom field loses its line breaks."""
     paras = [p for p in body.strip().split("\n\n") if p.strip()]
     return "".join("<p>" + "<br>".join(html.escape(line) for line in p.split("\n")) + "</p>" for p in paras)
+
+
+def _as_date(v):
+    from datetime import date
+    if not v:
+        return None
+    return v if isinstance(v, date) else date.fromisoformat(str(v)[:10])
+
+
+def _long_date(v) -> str:
+    d = _as_date(v)
+    return f"{d.strftime('%B')} {d.day}, {d.year}" if d else ""
+
+
+def _month(v) -> str:
+    d = _as_date(v)
+    return d.strftime("%B") if d else ""

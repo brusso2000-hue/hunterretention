@@ -13,7 +13,8 @@ from hunter_retention.db import DB, apollo_fields, approvals, utcnow
 from hunter_retention.dispatch import HP_FIELDS
 from hunter_retention.runner import run_daily
 
-SEQS = {"e1": "seq_e1", "e2": "seq_e2", "e3": "seq_e3", "e4": "seq_e4"}
+SEQS = {"e1": "seq_e1", "e2": "seq_e2", "e3": "seq_e3", "e4": "seq_e4",
+        "r1": "seq_r1", "r2": "seq_r2", "r3": "seq_r3"}
 
 
 class FakeQBO:

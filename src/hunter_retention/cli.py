@@ -62,6 +62,17 @@ def cmd_run(cfg, args) -> int:
     return 0
 
 
+def cmd_simulate(cfg, args) -> int:
+    """Dry run both flows on real data as if they had been switched on N days ago. Writes nothing to the
+    production database, sends nothing, makes no Apollo calls."""
+    from .runner import local_today
+    from .simulate import simulate
+    out = Path(args.out or ROOT / "reports")
+    summary = simulate(cfg, _db(cfg), local_today(cfg), args.days_back, out, _mail(cfg))
+    print("SIMULATION " + json.dumps(summary, default=str))
+    return 0
+
+
 def cmd_contacts(cfg, args) -> int:
     """preview: show who the lookup would pick for recent buyers. Writes nothing, spends no credits.
     list: stored contacts.  set: choose a contact by hand (always wins)."""
@@ -230,7 +241,8 @@ def cmd_review(cfg, args) -> int:
                 print("not found"); return 1
             if args.action in ("enroll", "exclude") and r["kind"] in (
                     "domain_match_review", "role_email_only", "missing_email", "contact_suggestion"):
-                tr = c.execute(select(tracks).where(tracks.c.account_key == r["ref"])).mappings().first()
+                tr = c.execute(select(tracks).where(tracks.c.account_key == r["ref"]).order_by(
+                    (tracks.c.status != "held"), tracks.c.id.desc())).mappings().first()
                 if tr:
                     if args.action == "enroll":
                         vals = {"status": "active", "status_reason": f"review:{r['kind']}"}
@@ -398,6 +410,8 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--app"); s.add_argument("--track", type=int)
     s.add_argument("--role", choices=["user", "buyer", "owner_operator", "unknown"]); s.set_defaults(fn=cmd_preview)
     s = sub.add_parser("content-lint"); s.set_defaults(fn=cmd_content_lint)
+    s = sub.add_parser("simulate", help="dry run both flows on real data without touching production")
+    s.add_argument("--days-back", type=int, default=75); s.add_argument("--out"); s.set_defaults(fn=cmd_simulate)
     s = sub.add_parser("contacts", help="contact lookup: preview | list | set")
     s.add_argument("action", choices=["preview", "list", "set", "mailcheck"])
     s.add_argument("--days", type=int, default=730); s.add_argument("--out")

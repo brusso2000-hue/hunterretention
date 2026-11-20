@@ -317,6 +317,90 @@ tracks:
         {{ sender_name }}
         {{ sender_company }}
 
+  # ===================================================================== R: reorder flow (existing customers)
+  # Sent when a repeat customer goes longer than usual without ordering. Stops the moment they order.
+  R:
+    r1:
+      subject: "Running low on {{ family_label }} supplies?"
+      body: |
+        {{ greeting }}
+
+        It's been a while since your last order in {{ last_order_month }}, so I wanted to check that you're not running low.
+
+        {% if consumables %}
+        Last time you ordered:
+        {% for c in consumables %}
+        - {{ c.display }} ({{ c.sku }}){% if c.url %}: {{ c.url }}{% endif %}
+
+        {% endfor %}
+        {% endif %}
+
+        Reply with quantities and a PO number and it ships the same or next business day.
+
+        Order online: {{ store_url }}
+
+        Best,
+        {{ sender_name }}
+        {{ sender_company }}
+        {{ sender_phone }}
+      variants:
+        buyer:
+          subject: "Reorder check for {{ company or 'your team' }}{% if po_number %} (last PO {{ po_number }}){% endif %}"
+          body: |
+            {{ greeting }}
+
+            {{ company or "Your team" }}'s last order with us was {{ last_order_date }}{% if po_number %} on PO {{ po_number }}{% endif %}. In case stock is getting low, here is what was on it:
+
+            {% for c in consumables %}
+            - {{ c.qty | int }} x {{ c.display }} ({{ c.sku }})
+            {% endfor %}
+
+            Reply with quantities and a PO and it ships the same or next business day.
+
+            Need a quote first: {{ quote_url }}
+
+            Best,
+            {{ sender_name }}
+            {{ sender_company }}
+            {{ sender_phone }}
+
+    r2:
+      subject: "Following up on {{ family_label }} supplies"
+      body: |
+        {{ greeting }}
+
+        Following up on my note from a couple of weeks ago in case it got buried. Do you need anything restocked?
+
+        {% if consumables %}
+        From your last order:
+        {% for c in consumables %}
+        - {{ c.display }} ({{ c.sku }})
+        {% endfor %}
+        {% endif %}
+
+        A one-line reply with quantities is all I need.
+
+        Best,
+        {{ sender_name }}
+        {{ sender_company }}
+        {{ sender_phone }}
+
+    r3:
+      subject: "Anything change on your end?"
+      body: |
+        {{ greeting }}
+
+        This is my last note on this. It's been longer than usual since {{ company or "you" }} ordered, so I wanted to check in.
+
+        If you're simply stocked up, no reply needed. If something changed, such as a different process, a problem with the product, or another supplier, a one-line reply would help me a lot.
+
+        And if you do need more, just reply here.
+
+        Best,
+        {{ sender_name }}
+        {{ sender_company }}
+        {{ sender_phone }}
+
 # ============================================================================ versions by contact type
 role_variants:
   # --------------------------------------------------------------- buyer (purchasing; did not use the product)

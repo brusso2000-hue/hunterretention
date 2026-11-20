@@ -347,13 +347,16 @@ class ContactResolver:
         self.last_mail_error: str | None = None
 
     # ------------------------------------------------------------------ daily entry
-    def run(self) -> dict:
-        """Look up every first-time buyer in the program who has not been resolved yet."""
+    def run(self, also: list[str] | None = None) -> dict:
+        """Look up every first-time buyer in the program who has not been resolved yet, plus any accounts
+        named in `also` (customers about to enter the reorder flow)."""
         if not self.enabled:
             return self.stats
+        also_keys = set(also or [])
         for key, acct in self.world.accounts.items():
             fp = first_purchase(self.world, key, self.clf, self.merge_days)
-            if fp is None or fp.date < self.cfg.program_start_date or not self._due(key):
+            in_program = fp is not None and fp.date >= self.cfg.program_start_date
+            if not (in_program or key in also_keys) or not self._due(key):
                 continue
             try:
                 res = self.resolve(acct, fp)
