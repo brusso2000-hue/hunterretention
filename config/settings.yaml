@@ -29,6 +29,9 @@ apollo:
     e2: ""
     e3: ""
     e4: ""
+    r1: ""       # reorder flow, same one-step setup
+    r2: ""
+    r3: ""
   contact_label: "HP Lifecycle"
   # text: hp_body is a multi-line text field inserted as-is. html: paragraphs converted to <p>/<br>.
   # Confirm which renders correctly with your first sandbox send (docs/SETUP.md step 6).
@@ -56,7 +59,8 @@ identity:
   role_address_patterns: ["(.*[._-])?a[._-]?p([._-].*)?", "ap(forest|grove|plant|site|dept|team|inbox|mail|[0-9])[a-z0-9]*",
                           ".*accounts?[._-]?payable.*", ".*payables?.*", ".*invoic(e|es|ing).*", ".*billing.*",
                           ".*accounting.*", ".*accounts?[._-]?receivable.*", "(.*[._-])?ar([._-].*)?",
-                          ".*receiving.*", ".*finance.*", "no[._-]?reply.*", "do[._-]?not[._-]?reply.*"]
+                          ".*receiving.*", ".*finance.*", "no[._-]?reply.*", "do[._-]?not[._-]?reply.*",
+                          ".*remit.*", ".*supplier.*", ".*vendor.*", ".*data[._-]?request.*", ".*notification.*"]
   freemail_domains: [gmail.com, yahoo.com, hotmail.com, outlook.com, aol.com, icloud.com, live.com, msn.com,
                      comcast.net, verizon.net, att.net, me.com, protonmail.com, ymail.com, qq.com, 163.com]
 
@@ -74,11 +78,35 @@ contacts:
   mailboxes: ["hunter@hunterproducts.com", "sales@hunterproducts.com"]
   own_domains: [hunterproducts.com, hunterproducts.co]
 
+# Reorder flow: existing customers who are taking longer than usual to reorder.
+reorder:
+  enabled: true
+  start_date: "2026-12-01"          # no reorder emails are planned before this date
+  min_orders: 3                     # need at least this many purchases to know a customer's rhythm
+  recent_gaps: 6                    # usual gap = median of this many most recent gaps
+  min_usual_gap_days: 21
+  max_usual_gap_days: 400           # customers who order less often than this are left alone
+  # A customer enters the flow the day: days since last order > usual gap x trigger_multiple + trigger_extra_days.
+  # Examples: 1.3 and 0 = 30% later than usual.  1.0 and 60 = two months later than usual.
+  trigger_multiple: 1.3
+  trigger_extra_days: 0
+  gap_basis: median                 # median = middle of their recent gaps (steadier); last = only their last gap
+  long_gone_multiple: 3.0           # beyond this it is a win-back: flagged for you, not automated
+  long_gone_days: 540               # ...and so is anyone who has not ordered in this many days
+  dormant_days: 730                 # no order in this long: left alone, not even flagged
+  irregular_cv: 1.0                 # order timing more uneven than this is flagged, not automated
+  exclude_domains: []               # customers handled by other outreach, e.g. [ttmtech.com]
+  exclude_accounts: []
+
 eligibility:
   min_order_amount: 0.01                 # $0 sample shipments are not purchases
   ignored_products_count_as_history: true
   refund_window_days: 120
   full_refund_threshold: 0.9             # credit >= 90% of the order within the window = refunded/canceled
+  # Accounts that spent this much in the last 12 months get NO automated emails from either flow.
+  # Counted per company: QuickBooks customers sharing an email domain (e.g. TTM's plants) are added together.
+  # They go on the review list for a personal note instead. 0 turns the rule off.
+  no_automation_min_revenue_12m: 10000
   min_days_between_emails: 7
   max_emails_per_30_days: 2
   pause_on_reply: true                   # a reply hands the customer to a human; remaining touches stop
@@ -97,4 +125,4 @@ sandbox:
 analytics:
   # % of new customers randomly held out (no emails) so revenue lift can be measured honestly.
   # Set to 0 to email everyone.
-  holdout_pct: 10
+  holdout_pct: 0

@@ -96,7 +96,10 @@ oauth_tokens = Table(
 tracks = Table(
     "tracks", metadata,
     Column("id", Integer, primary_key=True, autoincrement=True),
-    Column("account_key", String(128), nullable=False, unique=True),
+    Column("account_key", String(128), nullable=False, index=True),
+    # flow: first_time (one per account) or reorder (one per overdue episode, keyed by the last order).
+    Column("flow", String(16), nullable=False, default="first_time", server_default="first_time"),
+    Column("episode_key", String(64), nullable=False, default="", server_default=""),
     Column("customer_ids", JSON),
     Column("email", String(255)),
     Column("first_name", String(128)),
@@ -123,6 +126,7 @@ tracks = Table(
     Column("first_reorder_pk", String(64)),
     Column("created_at", DateTime),
     Column("updated_at", DateTime),
+    UniqueConstraint("account_key", "flow", "episode_key", name="uq_track_account_flow_episode"),
 )
 
 touches = Table(
@@ -256,11 +260,22 @@ class DB:
     def _add_missing_columns(self) -> None:
         """create_all() adds new tables but not new columns on tables that already exist."""
         from sqlalchemy import inspect, text
-        have = {c["name"] for c in inspect(self.engine).get_columns("tracks")}
+        insp = inspect(self.engine)
+        have = {c["name"] for c in insp.get_columns("tracks")}
         with self.engine.begin() as c:
-            for name, ddl in (("contact_role", "VARCHAR(24)"), ("contact_source", "VARCHAR(32)")):
+            for name, ddl in (("contact_role", "VARCHAR(24)"), ("contact_source", "VARCHAR(32)"),
+                              ("flow", "VARCHAR(16) NOT NULL DEFAULT 'first_time'"),
+                              ("episode_key", "VARCHAR(64) NOT NULL DEFAULT ''")):
                 if name not in have:
                     c.execute(text(f"ALTER TABLE tracks ADD COLUMN {name} {ddl}"))
+            if self.engine.dialect.name == "postgresql":
+                # Older databases allowed one track per account. The reorder flow needs one first-time track
+                # plus one track per overdue episode, so the uniqueness moves to (account, flow, episode).
+                for uc in insp.get_unique_constraints("tracks"):
+                    if uc.get("column_names") == ["account_key"]:
+                        c.execute(text(f'ALTER TABLE tracks DROP CONSTRAINT IF EXISTS "{uc["name"]}"'))
+                c.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_track_account_flow_episode "
+                               "ON tracks (account_key, flow, episode_key)"))
 
     # ---- small helpers -----------------------------------------------------
     def get_state(self, key: str, default: str | None = None) -> str | None:

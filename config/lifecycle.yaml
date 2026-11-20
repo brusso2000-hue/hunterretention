@@ -70,7 +70,7 @@ tracks:
   C:   # Micro-Jet 200
     touches:
       - {key: e1, offset_days: 4,   window_days: 7,  suppress_on: []}
-      - {key: e2, offset_days: 30,  window_days: 15, suppress_on: []}
+      # no e2: Micro-Jet buyers get emails 1, 3 and 4
       - {key: e3, offset: replenishment, window_days: 21, suppress_on: [consumable_replenishment], recheck_live: true}
       - {key: e4, offset_days: 120, window_days: 30, suppress_on: [any_purchase], recheck_live: true}
   D:   # Consumables / parts only (no new system in the order)
@@ -78,3 +78,9 @@ tracks:
       - {key: e1, offset_days: 4,   window_days: 7,  suppress_on: []}
       - {key: e3, offset: replenishment, window_days: 21, suppress_on: [same_family], recheck_live: true}
       - {key: e4, offset_days: 120, window_days: 30, suppress_on: [any_purchase], recheck_live: true}
+  R:   # Reorder flow: existing customers overdue against their own usual gap (see reorder.py).
+       # offset_days here count from the day the customer became overdue, not from delivery.
+    touches:
+      - {key: r1, offset_days: 0,  window_days: 14, suppress_on: [any_purchase], recheck_live: true}
+      - {key: r2, offset_days: 14, window_days: 14, suppress_on: [any_purchase], recheck_live: true}
+      - {key: r3, offset_days: 30, window_days: 14, suppress_on: [any_purchase], recheck_live: true}

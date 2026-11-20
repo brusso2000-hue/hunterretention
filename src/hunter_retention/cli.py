@@ -62,6 +62,17 @@ def cmd_run(cfg, args) -> int:
     return 0
 
 
+def cmd_simulate(cfg, args) -> int:
+    """Dry run both flows on real data as if they had been switched on N days ago. Writes nothing to the
+    production database, sends nothing, makes no Apollo calls."""
+    from .runner import local_today
+    from .simulate import simulate
+    out = Path(args.out or ROOT / "reports")
+    summary = simulate(cfg, _db(cfg), local_today(cfg), args.days_back, out, _mail(cfg))
+    print("SIMULATION " + json.dumps(summary, default=str))
+    return 0
+
+
 def cmd_contacts(cfg, args) -> int:
     """preview: show who the lookup would pick for recent buyers. Writes nothing, spends no credits.
     list: stored contacts.  set: choose a contact by hand (always wins)."""
@@ -75,6 +86,19 @@ def cmd_contacts(cfg, args) -> int:
     from .runner import local_today
     from .world import first_purchase, load_world
 
+    if args.action == "mailcheck":
+        mail = _mail(cfg)
+        if not mail:
+            print("Microsoft app not set up: need MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET and contacts.mailboxes")
+            return 1
+        try:
+            rows = mail.check()
+        except Exception as exc:
+            print(f"Could not sign in to Microsoft: {type(exc).__name__}: {str(exc)[:400]}")
+            return 1
+        for r in rows:
+            print(f"MAILCHECK {r['mailbox']:<28} {r['test']:<32} {r['status']} found={r['found']} {r['code'] or ''} {r['message']}")
+        return 0
     db = _db(cfg)
     if args.action == "set":
         if not (args.account and args.email):
@@ -98,10 +122,14 @@ def cmd_contacts(cfg, args) -> int:
     resolver = ContactResolver(db, cfg, world, clf, today, mail, None)
     since = today - timedelta(days=args.days)
     rows, tally = [], Counter()
-    for key, acct in world.accounts.items():
+    recent = [(key, acct) for key, acct in world.accounts.items()
+              if (world.orders.get(key) or []) and world.orders[key][-1].date >= since]
+    # accounts with no person in QuickBooks first, then the most recent buyers
+    recent.sort(key=lambda ka: (bool(ka[1].emails), -world.orders[ka[0]][-1].date.toordinal()))
+    if args.max_accounts:
+        recent = recent[: args.max_accounts]
+    for key, acct in recent:
         orders = world.orders.get(key) or []
-        if not orders or orders[-1].date < since:
-            continue
         res = resolver.resolve(acct, first_purchase(world, key, clf, resolver.merge_days), allow_credits=False)
         p = res.primary
         outcome = (f"{p.role} via {p.source}" if p else
@@ -127,6 +155,8 @@ def cmd_contacts(cfg, args) -> int:
     print(f"Inbox search: {'on' if mail else 'OFF (Microsoft app not set up)'}; Apollo lookups: preview only, 0 credits")
     for (had, outcome), n in sorted(tally.items(), key=lambda kv: (kv[0][0], -kv[1])):
         print(f"  QuickBooks had {had:<10} -> {outcome:<28} {n}")
+    if resolver.stats["mail_errors"]:
+        print(f"Inbox search errors: {resolver.stats['mail_errors']} (last: {resolver.last_mail_error})")
     print(f"Details: {out}")
     return 0
 
@@ -211,7 +241,8 @@ def cmd_review(cfg, args) -> int:
                 print("not found"); return 1
             if args.action in ("enroll", "exclude") and r["kind"] in (
                     "domain_match_review", "role_email_only", "missing_email", "contact_suggestion"):
-                tr = c.execute(select(tracks).where(tracks.c.account_key == r["ref"])).mappings().first()
+                tr = c.execute(select(tracks).where(tracks.c.account_key == r["ref"]).order_by(
+                    (tracks.c.status != "held"), tracks.c.id.desc())).mappings().first()
                 if tr:
                     if args.action == "enroll":
                         vals = {"status": "active", "status_reason": f"review:{r['kind']}"}
@@ -321,7 +352,7 @@ def sample_track(cfg, segment: str, app: str | None) -> dict:
     elif segment == "C":
         lines = [{"sku": "AB2000", "display": "Micro-Jet 200", "qty": 1, "amount": 495, "family": "micro_jet",
                   "role": "equipment", "applications": [], "url": "https://hunterproducts.com/systems/micro-jet-200/"},
-                 {"sku": "AB2025", "display": "Aluminum Oxide 5 lb (MGAO)", "qty": 1, "amount": 35, "family": "micro_jet",
+                 {"sku": "AB2025", "display": "Aluminum Oxide MGAO-320 (Super Fine), 5 lb", "qty": 1, "amount": 35, "family": "micro_jet",
                   "role": "consumable", "applications": [], "url": None}]
         fam, sub, apps = "micro_jet", "micro_jet", []
     else:
@@ -379,9 +410,12 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--app"); s.add_argument("--track", type=int)
     s.add_argument("--role", choices=["user", "buyer", "owner_operator", "unknown"]); s.set_defaults(fn=cmd_preview)
     s = sub.add_parser("content-lint"); s.set_defaults(fn=cmd_content_lint)
+    s = sub.add_parser("simulate", help="dry run both flows on real data without touching production")
+    s.add_argument("--days-back", type=int, default=75); s.add_argument("--out"); s.set_defaults(fn=cmd_simulate)
     s = sub.add_parser("contacts", help="contact lookup: preview | list | set")
-    s.add_argument("action", choices=["preview", "list", "set"])
+    s.add_argument("action", choices=["preview", "list", "set", "mailcheck"])
     s.add_argument("--days", type=int, default=730); s.add_argument("--out")
+    s.add_argument("--max-accounts", type=int, default=0)
     s.add_argument("--account"); s.add_argument("--email"); s.add_argument("--first"); s.add_argument("--last")
     s.add_argument("--role", choices=["user", "buyer", "owner_operator", "unknown"])
     s.set_defaults(fn=cmd_contacts)

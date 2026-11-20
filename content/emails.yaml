@@ -33,13 +33,11 @@ tracks:
   # ===================================================================== A: Micro-Metallizer
   A:
     e1:
-      subject: "Getting started with your {{ product }}"
+      subject: "Getting started with your {{ product_ref }}"
       body: |
         {{ greeting }}
 
-        Thanks again for ordering the {{ product }}. I wanted to check in as you get started with it.
-
-        One thing that trips people up early: between steps and at the end, wipe the part with a clean cloth. Don't rinse it in water.
+        Thanks again for ordering the {{ product_ref }}. I wanted to check in as you get started.
 
         If anything about setup, surface prep or technique isn't clear, just reply to this email. It's usually faster to sort out here than by trial and error on a real part.
 
@@ -52,25 +50,23 @@ tracks:
         {{ sender_phone }}
 
     e2:
-      subject: "{% if application_labels %}A few {{ application_labels | join(' and ') }} plating tips{% else %}A few plating tips{% endif %}"
+      subject: "One month in with your {{ product_ref }}"
       body: |
         {{ greeting }}
 
-        It's been about a month since your {{ product }} order, so here are a few notes{% if application_labels %} for {{ application_labels | join(' and ') }} work{% endif %}.
+        It's been about a month since you ordered the {{ product_ref }}.
 
-        {% for b in blocks %}
-        {{ b }}
-
-        {% endfor %}
         {% if consumables %}
-        When you need more, here's what you ordered:
+        Here's what you ordered, in case you need more:
         {% for c in consumables %}
         - {{ c.display }} ({{ c.sku }}){% if c.url %}: {{ c.url }}{% endif %}
 
         {% endfor %}
-
+        {% else %}
+        If you need more pens, they're here: {{ store_url }}
         {% endif %}
-        Questions on a specific part or substrate? Reply here or send details through {{ tech_url }}.
+
+        Questions on a specific part or substrate? Reply here, or send details through this form: {{ tech_url }}
 
         Best,
         {{ sender_name }}
@@ -89,11 +85,12 @@ tracks:
         - {{ c.display }} ({{ c.sku }}){% if c.url %}: {{ c.url }}{% endif %}
 
         {% endfor %}
-        {% else %}
-        Pens for the {{ product }} are here: {{ store_url }}
         {% endif %}
 
-        Reply with quantities and a PO number and we'll ship same day, or order online at {{ store_url }}. If you need a quote first: {{ quote_url }}
+        Reply with quantities and a PO number and it ships the same or next business day.
+
+        Order online: {{ store_url }}
+        Need a quote first: {{ quote_url }}
 
         Best,
         {{ sender_name }}
@@ -105,7 +102,7 @@ tracks:
       body: |
         {{ greeting }}
 
-        I wanted to personally follow up and see how things have been going with the {{ product }}.
+        I wanted to personally follow up and see how things have been going with the {{ product_ref }}.
 
         Have you been getting the results you were looking for?
 
@@ -135,17 +132,15 @@ tracks:
         {{ sender_phone }}
 
     e2:
-      subject: "Carbitron 300 operating tips"
+      subject: "How is the Carbitron 300 working out?"
       body: |
         {{ greeting }}
 
-        About a month in with the Carbitron 300, here are a few notes that help get consistent results.
+        It's been about a month since your Carbitron 300 arrived. Have you had success with it so far?
 
-        {% for b in blocks %}
-        {{ b }}
+        If you're running low on carbide, replacement electrodes are here: {{ store_url }}
 
-        {% endfor %}
-        Electrodes come in tungsten carbide (1/32", 1/16", 1/8" and 7/32") and titanium carbide (1/8"). If you're not sure which size fits your work, reply with what you're coating.
+        Or just reply with what you need and I'll get it out to you.
 
         Best,
         {{ sender_name }}
@@ -156,7 +151,7 @@ tracks:
       body: |
         {{ greeting }}
 
-        [[VERIFY: one sentence on what to check on the Carbitron 300 after 2 to 3 months of use (hand piece, cables, electrode wear) and how often]]
+        It's been a couple of months with the Carbitron 300, so here's the reorder info in one place.
 
         {% if consumables %}
         Electrodes from your original order:
@@ -170,7 +165,9 @@ tracks:
         - Power Cable, red (TS3045)
         - Ground Cable, black (TS3046)
 
-        Reply with what you need and a PO number and we'll ship same day. Electrodes and parts online: {{ store_url }}
+        Reply with what you need and a PO number and it ships the same or next business day.
+
+        Order online: {{ store_url }}
 
         Best,
         {{ sender_name }}
@@ -208,23 +205,6 @@ tracks:
         {{ sender_company }}
         {{ sender_phone }}
 
-    e2:
-      subject: "Micro-Jet 200 tips"
-      body: |
-        {{ greeting }}
-
-        About a month in with the Micro-Jet 200, here are a few notes that help.
-
-        {% for b in blocks %}
-        {{ b }}
-
-        {% endfor %}
-        Media we stock: aluminum oxide (AB2024, AB2025), silicon carbide (AB2028, AB2029) and glass beads (AB3032). Media page: https://hunterproducts.com/store/?type=media
-
-        Best,
-        {{ sender_name }}
-        {{ sender_company }}
-
     e3:
       subject: "Micro-Jet 200 nozzles and media"
       body: |
@@ -239,10 +219,12 @@ tracks:
 
         {% endfor %}
         {% endif %}
-        Nozzles: Nozzle Assembly .020" (AB2001), Tungsten Carbide Nozzle Assembly .030" (AB2002), Tungsten Carbide Nozzle .020" (AB2003)
-        [[VERIFY: when a nozzle should be replaced (sign of wear) for the Micro-Jet 200]]
+        Tungsten carbide nozzles: .020" (AB2003) and .030" (AB2004)
+        Nozzle assemblies: .020" (AB2001) and .030" (AB2002)
 
-        Reply with what you need and a PO number and we'll ship same day, or order online: {{ store_url }}
+        Reply with what you need and a PO number and it ships the same or next business day.
+
+        Order online: {{ store_url }}
 
         Best,
         {{ sender_name }}
@@ -269,9 +251,9 @@ tracks:
       body: |
         {{ greeting }}
 
-        Thanks for ordering the {{ product }} from us. Quick question so we can help going forward: which {{ family_label }} system are you running these with, and roughly how long has it been in service?
+        Thanks for your order of the {{ product }}. One quick question so I can be more useful: what are you using your {{ family_label }} for, and roughly how long has it been in service?
 
-        If you need anything for it, parts, technique help, or a quote, just reply here.
+        If you need anything for it, whether that's parts, technique help or a quote, just reply here.
 
         Best,
         {{ sender_name }}
@@ -286,13 +268,16 @@ tracks:
         It's been a couple of months since your order, so I wanted to make the next one easy.
 
         {% if consumables %}
-        From your last order:
+        From your order:
         {% for c in consumables %}
         - {{ c.display }} ({{ c.sku }}){% if c.url %}: {{ c.url }}{% endif %}
 
         {% endfor %}
         {% endif %}
-        Reply with quantities and a PO number and we'll ship same day, or order online at {{ store_url }}.
+
+        Reply with quantities and a PO number and it ships the same or next business day.
+
+        Order online: {{ store_url }}
 
         Best,
         {{ sender_name }}
@@ -312,6 +297,90 @@ tracks:
         {{ sender_name }}
         {{ sender_company }}
 
+  # ===================================================================== R: reorder flow (existing customers)
+  # Sent when a repeat customer goes longer than usual without ordering. Stops the moment they order.
+  R:
+    r1:
+      subject: "Running low on {{ family_label }} supplies?"
+      body: |
+        {{ greeting }}
+
+        It's been a while since your last order in {{ last_order_month }}, so I wanted to check that you're not running low.
+
+        {% if consumables %}
+        Last time you ordered:
+        {% for c in consumables %}
+        - {{ c.display }} ({{ c.sku }}){% if c.url %}: {{ c.url }}{% endif %}
+
+        {% endfor %}
+        {% endif %}
+
+        Reply with quantities and a PO number and it ships the same or next business day.
+
+        Order online: {{ store_url }}
+
+        Best,
+        {{ sender_name }}
+        {{ sender_company }}
+        {{ sender_phone }}
+      variants:
+        buyer:
+          subject: "Reorder check for {{ company or 'your team' }}{% if po_number %} (last PO {{ po_number }}){% endif %}"
+          body: |
+            {{ greeting }}
+
+            {{ company or "Your team" }}'s last order with us was {{ last_order_date }}{% if po_number %} on PO {{ po_number }}{% endif %}. In case stock is getting low, here is what was on it:
+
+            {% for c in consumables %}
+            - {{ c.qty | int }} x {{ c.display }} ({{ c.sku }})
+            {% endfor %}
+
+            Reply with quantities and a PO and it ships the same or next business day.
+
+            Need a quote first: {{ quote_url }}
+
+            Best,
+            {{ sender_name }}
+            {{ sender_company }}
+            {{ sender_phone }}
+
+    r2:
+      subject: "Following up on {{ family_label }} supplies"
+      body: |
+        {{ greeting }}
+
+        Following up on my note from a couple of weeks ago in case it got buried. Do you need anything restocked?
+
+        {% if consumables %}
+        From your last order:
+        {% for c in consumables %}
+        - {{ c.display }} ({{ c.sku }})
+        {% endfor %}
+        {% endif %}
+
+        A one-line reply with quantities is all I need.
+
+        Best,
+        {{ sender_name }}
+        {{ sender_company }}
+        {{ sender_phone }}
+
+    r3:
+      subject: "Anything change on your end?"
+      body: |
+        {{ greeting }}
+
+        This is my last note on this. It's been longer than usual since {{ company or "you" }} ordered, so I wanted to check in.
+
+        If you're simply stocked up, no reply needed. If something changed, such as a different process, a problem with the product, or another supplier, a one-line reply would help me a lot.
+
+        And if you do need more, just reply here.
+
+        Best,
+        {{ sender_name }}
+        {{ sender_company }}
+        {{ sender_phone }}
+
 # ============================================================================ versions by contact type
 role_variants:
   # --------------------------------------------------------------- buyer (purchasing; did not use the product)
@@ -330,7 +399,7 @@ role_variants:
 
         {% endfor %}
         {% endif %}
-        To reorder, reply to this email with part numbers, quantities and a PO. Most orders ship within 2 days.
+        To reorder, reply to this email with part numbers, quantities and a PO. Orders ship the same or next business day.
 
         Also, if someone else at {{ company or "your company" }} is the one using these, could you forward this to them or send me their name? I have setup and technique notes that will be more useful to them than to purchasing: {{ guides_url if family == "micro_metallizer" else system_url }}
 
@@ -358,8 +427,8 @@ role_variants:
         {% else %}
         Parts and supplies: {{ store_url }}
         {% endif %}
-        Lead time: most orders ship within 2 days.
-        Terms: Net 30 is available, and we take ACH.
+        Lead time: orders ship the same or next business day.
+        Terms: payment terms are available on request, and we take ACH.
 
         Reply with quantities and a PO, or request a formal quote here: {{ quote_url }}
 
@@ -417,46 +486,4 @@ role_variants:
 
 # Tip blocks inserted into e2 by application (A) or product line (B, C).
 # A customer buying two metals gets both blocks (max_application_blocks).
-blocks:
-  A:
-    e2:
-      gold: |
-        Gold:
-        - Gold over copper or brass usually needs a nickel barrier underneath. [[VERIFY: confirm Hunter recommends nickel first under gold, and when it can be skipped]]
-        - [[VERIFY: gold tip, e.g. prep sequence with the absorbent/degreaser pen before gold]]
-        - [[VERIFY: when to use the 24K Gold Heavy Duty pen (PL-1016) instead of the standard 24K pen (PL-1003)]]
-      nickel: |
-        Nickel:
-        - Nickel is commonly used as a barrier layer, for example under gold on contacts.
-        - [[VERIFY: nickel tip, e.g. prep and stroke technique for an even deposit]]
-        - [[VERIFY: when to use black nickel (PL-1007) or nickel heavy duty (PL-1020)]]
-      tin: |
-        Tin:
-        - Tin pens are used to restore solderability on pads and leads.
-        - [[VERIFY: tin tip, e.g. surface prep before tin and how to check coverage]]
-      silver: |
-        Silver:
-        - [[VERIFY: silver tip 1 (typical use and prep)]]
-        - [[VERIFY: silver tip 2 (when to use Silver Heavy Duty PL-1018)]]
-      copper: |
-        Copper:
-        - [[VERIFY: copper tip 1 (typical use, e.g. trace or pad build-up, and prep)]]
-        - [[VERIFY: copper tip 2 (when to use Copper Heavy Duty PL-1019)]]
-      other: |
-        - [[VERIFY: tips for specialty pens (rhodium, palladium, zinc, chrome color)]]
-      general: |
-        - Prep matters most. Start with a clean, degreased surface; the absorbent/degreaser pen (PL-1002) is made for that step.
-        - Wipe with a clean cloth between steps and at the end. Don't rinse in water.
-        - [[VERIFY: one more general Micro-Metallizer technique tip]]
-  B:
-    e2:
-      carbitron: |
-        - [[VERIFY: Carbitron tip 1, e.g. surface prep before applying tungsten carbide]]
-        - [[VERIFY: Carbitron tip 2, e.g. power/vibration settings for small vs large areas]]
-        - [[VERIFY: Carbitron tip 3, e.g. how to tell when an electrode needs replacing]]
-  C:
-    e2:
-      micro_jet: |
-        - [[VERIFY: Micro-Jet tip 1, e.g. air supply requirements (dry, filtered air)]]
-        - [[VERIFY: Micro-Jet tip 2, e.g. matching media type and grit to the job]]
-        - [[VERIFY: Micro-Jet tip 3, e.g. nozzle distance and angle]]
+blocks: {}

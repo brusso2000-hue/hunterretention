@@ -80,7 +80,8 @@ class Planner:
     def plan_one(self, account_key: str) -> None:
         acct = self.world.accounts.get(account_key)
         with self.db.engine.begin() as c:
-            row = c.execute(select(tracks).where(tracks.c.account_key == account_key)).mappings().first()
+            row = c.execute(select(tracks).where((tracks.c.account_key == account_key)
+                                                 & (tracks.c.flow == "first_time"))).mappings().first()
         tr = dict(row) if row else None
         if acct is None:
             if tr and tr["status"] in ACTIVE_TRACK + ("held",):
@@ -90,7 +91,8 @@ class Planner:
 
     def _load_tracks(self) -> dict[str, dict]:
         with self.db.engine.begin() as c:
-            return {r["account_key"]: dict(r) for r in c.execute(select(tracks)).mappings()}
+            return {r["account_key"]: dict(r) for r in
+                    c.execute(select(tracks).where(tracks.c.flow == "first_time")).mappings()}
 
     # ------------------------------------------------------------------ per account
     def _plan_account(self, acct: Account, tr: dict | None) -> None:

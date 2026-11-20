@@ -219,3 +219,23 @@ def cohort_replenishment_days(world: World, classifier: Classifier, merge_days: 
 
 def median_or_none(values: list[int], min_n: int) -> float | None:
     return float(median(values)) if len(values) >= min_n else None
+
+
+def revenue_12m_by_account(world: World, today: date, freemail: set[str] | None = None) -> dict[str, float]:
+    """Product revenue over the last 12 months per account, counted at company level: accounts that share
+    an email domain (TTM's plants, a customer entered twice) are added together, so a big company split
+    across several QuickBooks customers is still seen as big."""
+    from datetime import timedelta
+    since = today - timedelta(days=365)
+    own = {k: sum(o.product_amount for o in orders if since <= o.date <= today) for k, orders in world.orders.items()}
+    by_domain: dict[str, float] = {}
+    free = freemail or set()
+    for k, acct in world.accounts.items():
+        for d in acct.domains:
+            if d not in free:
+                by_domain[d] = by_domain.get(d, 0.0) + own.get(k, 0.0)
+    out = {}
+    for k, acct in world.accounts.items():
+        shared = [by_domain[d] for d in acct.domains if d in by_domain]
+        out[k] = max([own.get(k, 0.0)] + shared)
+    return out

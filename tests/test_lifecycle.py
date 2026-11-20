@@ -207,7 +207,7 @@ def test_multi_metal_order_gets_multi_subsegment(h):
     assert tr["subsegment"] == "multi" and set(tr["applications"]) == {"gold", "nickel"}
     with h.db.engine.begin() as c:
         e2 = c.execute(select(touches.c.rendered_body).where(touches.c.touch_key == "e2")).scalar()
-    assert "Gold:" in e2 and "Nickel:" in e2
+    assert "PL-1003" in e2 and "PL-1006" in e2          # the one-month email lists both pens they bought
 
 
 def test_consumables_only_buyer_goes_to_segment_d(h):
@@ -438,7 +438,8 @@ def test_live_blocked_without_env_flag(tmp_path):
 
 
 def test_unverified_copy_blocks_live_send(tmp_path):
-    h = Harness(tmp_path)          # real content, still containing VERIFY markers in e2 tips
+    h = Harness(tmp_path)          # a placeholder left in any email must block that email from going live
+    h.cfg.emails["tracks"]["A"]["e2"]["body"] += "\n[[VERIFY: wording still to be confirmed]]\n"
     new_gold_customer(h)
     h.run_range(D(2026, 1, 1), D(2026, 2, 6))
     t = h.touches(acct("10"))

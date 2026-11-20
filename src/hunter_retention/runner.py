@@ -18,6 +18,7 @@ from .dispatch import Dispatcher, LiveSendBlocked
 from .engine import Planner
 from .qbo import QBOSource
 from .render import Renderer
+from .reorder import ReorderPlanner
 from .report import write_report
 from .sync import Syncer
 from .world import load_world
@@ -49,8 +50,11 @@ def run_daily(cfg: Config, db: DB, qbo: QBOSource | None, apollo: ApolloAPI | No
         # clear themselves. Apollo lookups cost credits, so they only run in the modes listed in contacts.credit_modes.
         credit_modes = cfg.s("contacts.credit_modes", ["live"]) or []
         people = apollo if hasattr(apollo, "match_person") and cfg.mode in credit_modes else None
-        stats["contacts"] = ContactResolver(db, cfg, world, classifier, today, mail, people, run_id).run()
+        reorder = ReorderPlanner(db, cfg, classifier, world, today, run_id)
+        stats["contacts"] = ContactResolver(db, cfg, world, classifier, today, mail, people, run_id).run(
+            also=reorder.due_accounts())
         stats["plan"] = Planner(db, cfg, classifier, world, today, run_id).plan()
+        stats["reorder"] = reorder.plan()      # after the first-time plan, so new first-time tracks win
 
         renderer = Renderer(cfg)
         dispatcher = Dispatcher(db, cfg, renderer, world, today, apollo, alerter, run_id)
@@ -60,7 +64,10 @@ def run_daily(cfg: Config, db: DB, qbo: QBOSource | None, apollo: ApolloAPI | No
                 return
             syncer.refresh_customers_live(tr.get("customer_ids") or [], str(tr["first_order_date"]))
             fresh = load_world(db, cfg, classifier)
-            Planner(db, cfg, classifier, fresh, today, run_id).plan_one(tr["account_key"])
+            if tr.get("flow") == "reorder":
+                ReorderPlanner(db, cfg, classifier, fresh, today, run_id).plan_one(tr["account_key"])
+            else:
+                Planner(db, cfg, classifier, fresh, today, run_id).plan_one(tr["account_key"])
             dispatcher.world = fresh
 
         dispatcher.live_recheck = live_recheck

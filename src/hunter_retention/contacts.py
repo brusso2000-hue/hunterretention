@@ -40,22 +40,33 @@ log = logging.getLogger(__name__)
 ROLES = ("user", "buyer", "owner_operator", "unknown")
 ROLE_RANK = {"user": 0, "owner_operator": 0, "buyer": 1, "unknown": 2}
 
+# Job titles. A user title needs a hands-on role noun: words like "plating" or "manufacturing" alone
+# also appear in product and company names, so they do not count.
 USER_TITLE = re.compile(
-    r"\b(engineer|engineering|technician|technologist|quality|inspector|inspection|operator|process|"
-    r"production|manufacturing|rework|repair|plater|plating|laboratory|lab|scientist|chemist|maintenance|"
-    r"toolmaker|machinist|supervisor|foreman|assembler|r&d)\b", re.I)
+    r"\b(engineer|technician|technologist|inspector|scientist|chemist|machinist|toolmaker|assembler|plater|"
+    r"(production|process|manufacturing|plating|rework|repair|maintenance|quality|lab|laboratory|shop|"
+    r"operations) (manager|supervisor|lead|leader|specialist|tech|operator|coordinator)|machine operator|"
+    r"quality (assurance|control)|r&d)\b", re.I)
 BUYER_TITLE = re.compile(
     r"\b(buyer|purchasing|procurement|purchaser|supply chain|sourcing|planner|commodity|expedit\w*|"
     r"materials? (manager|coordinator|specialist|analyst))\b", re.I)
+# Titles that look technical but are not the person using the product.
+OTHER_TITLE = re.compile(r"\b(sales|account(s|ing|ant)?|customer service|receptionist|payable|controller|"
+                         r"bookkeep\w*|logistics|shipping|receiving)\b", re.I)
+PRODUCT_WORDS = re.compile(r"\b(pen|pens|kit|micro-?metallizer|carbitron|micro-?jet|gold|nickel|24k|order|invoice|"
+                           r"received|attached|thank\w*|regards|please)\b", re.I)
+# Signs someone is using the product, not just ordering it. Product names ("Gold Plating Pen") must not
+# match, so bare words like "plating" or "electrode" are left out on purpose.
 TECH_TALK = re.compile(
-    r"\b(plat(e|es|ed|ing)|adhesion|adhere|peel(ing|s)?|thickness|deposit(s|ion)?|voltage|technique|"
-    r"how (do|to|long|many|much)|instructions?|not working|trouble|substrate|electrodes?|nozzles?|"
-    r"degreas\w*|masking|contacts? (pads?|fingers?)|gold fingers?|burn(ing|t)?|dull|discolor\w*|"
-    r"coverage|which pen|what pen|recommend)\b", re.I)
+    r"\b(adhesion|adhere\w*|peel(ing|s|ed)?|flak\w+|thickness|micro-?inch\w*|voltage|volts?|amperage|"
+    r"how (do|to|long|many|much|thick)|instructions?|not (working|plating|sticking|adhering)|won'?t plate|"
+    r"having (trouble|problems?|issues?)|substrate|surface prep\w*|masking|gold fingers?|contact pads?|"
+    r"burn(ing|t|ed)|dull finish|discolor\w*|tarnish\w*|coverage|which pen|what pen|recommend\w*|"
+    r"shelf life|tips? (dr(y|ied)|wear|worn)|technique|troubleshoot\w*|application (question|help))\b", re.I)
 PO_TALK = re.compile(
     r"\b(purchase order|p\.?\s?o\.?\s?(#|no\.?|number)?\s?\d|order (confirmation|acknowledg\w+)|"
     r"acknowledg\w+|remit\w*|payment terms|net ?30|w-?9|vendor (form|setup|registration)|ship date|"
-    r"tracking number|lead ?time|price (list|quote)|quotation)\b", re.I)
+    r"tracking number|lead ?time|price (list|quote)|quotation|invoice)\b", re.I)
 
 _NOT_A_NAME = {
     "attn", "attention", "receiving", "shipping", "purchasing", "accounts", "payable", "dock", "warehouse",
@@ -136,8 +147,8 @@ def split_name(name: str | None) -> tuple[str | None, str | None]:
         last, _, first = name.partition(",")
         name = f"{first.strip()} {last.strip()}"
     parts = [p for p in name.split() if _NAME_TOKEN.match(p)]
-    if not parts:
-        return None, None
+    if not parts or any(p.lower().strip(".") in _NOT_A_NAME for p in parts):
+        return None, None            # "Westak Purchasing" is a mailbox label, not a person
     if len(parts) == 1:
         return parts[0].title(), None
     return parts[0].title(), parts[-1].title()
@@ -213,19 +224,26 @@ def title_role(title: str | None) -> str:
         return "unknown"
     if BUYER_TITLE.search(title):
         return "buyer"
+    if OTHER_TITLE.search(title):
+        return "unknown"
     if USER_TITLE.search(title):
         return "user"
     return "unknown"
 
 
 def signature_title(text: str) -> str | None:
-    """Best-effort job title from the tail of an email (the signature block)."""
+    """Best-effort job title from the tail of an email (the signature block). Deliberately strict: a short
+    line that names a role, not a sentence, a product name or a company name."""
     tail = text[-700:] if text else ""
     for line in tail.splitlines():
-        line = line.strip(" \t|,-")
-        if 3 <= len(line) <= 60 and (USER_TITLE.search(line) or BUYER_TITLE.search(line)) \
-                and not re.search(r"[@:/]|\d{3}", line):
-            return line
+        for part in line.split("|"):
+            part = part.strip(" \t,-[]()")
+            if not (3 <= len(part) <= 50) or len(part.split()) > 6:
+                continue
+            if re.search(r"[@:/.!?]|\d{3}", part) or PRODUCT_WORDS.search(part):
+                continue
+            if BUYER_TITLE.search(part) or USER_TITLE.search(part):
+                return part
     return None
 
 
@@ -287,9 +305,13 @@ def score_inbox(messages: list[MailMessage], domains: set[str], own_domains: set
             score += 5; why.append(f"last emailed {p['last']}")
         if first and first.lower() in hints:
             score += 10; why.append("named on the shipping label")
-        if p["tech"] or t_role == "user":
+        # A buyer title or a purchasing mailbox settles it. Otherwise usage questions make a user, unless
+        # purchasing emails clearly outnumber them.
+        if t_role == "buyer" or PURCHASING_MAILBOX.match(email.split("@", 1)[0]):
+            role = "buyer"
+        elif t_role == "user" or (p["tech"] and p["tech"] >= p["po"]):
             role = "user"
-        elif p["po"] or t_role == "buyer":
+        elif p["po"]:
             role = "buyer"
         else:
             role = "unknown"
@@ -322,15 +344,19 @@ class ContactResolver:
         self.stats = {"looked_up": 0, "primary_set": 0, "suggested": 0, "no_contact": 0, "credits": 0,
                       "mail_errors": 0}
         self._credits_this_month: int | None = None
+        self.last_mail_error: str | None = None
 
     # ------------------------------------------------------------------ daily entry
-    def run(self) -> dict:
-        """Look up every first-time buyer in the program who has not been resolved yet."""
+    def run(self, also: list[str] | None = None) -> dict:
+        """Look up every first-time buyer in the program who has not been resolved yet, plus any accounts
+        named in `also` (customers about to enter the reorder flow)."""
         if not self.enabled:
             return self.stats
+        also_keys = set(also or [])
         for key, acct in self.world.accounts.items():
             fp = first_purchase(self.world, key, self.clf, self.merge_days)
-            if fp is None or fp.date < self.cfg.program_start_date or not self._due(key):
+            in_program = fp is not None and fp.date >= self.cfg.program_start_date
+            if not (in_program or key in also_keys) or not self._due(key):
                 continue
             try:
                 res = self.resolve(acct, fp)
@@ -384,6 +410,12 @@ class ContactResolver:
             best.title = best.title or other.title
             if best.role == "unknown":
                 best.role = other.role
+            # Purchasing evidence beats a shipping-label match: at small companies the box is addressed
+            # to the buyer. Only a usage question or a hands-on title keeps them a user.
+            ev = " ".join(best.evidence)
+            if "buyer" in (c.role, old.role) and best.role == "user" \
+                    and "asked a technical question" not in ev and title_role(best.title) != "user":
+                best.role = "buyer"
             cands[e] = best
 
         orders = list(fp.orders) if fp else []
@@ -429,7 +461,8 @@ class ContactResolver:
 
         # 3. the purchase order email
         if self.mail and domains:
-            for po in {o.po_number for o in orders if o.po_number and len(re.sub(r"\W", "", o.po_number)) >= 5}:
+            for po in {o.po_number for o in orders if o.po_number and len(re.sub(r"\W", "", o.po_number)) >= 5
+                       and re.search(r"\d{3}", o.po_number)}:      # a real PO number, not a name typed in the field
                 for m in self._mail(lambda po=po: self.mail.by_text(po, since)):
                     if email_domain(m.sender_email) in domains:
                         first, last = split_name(m.sender_name)
@@ -489,6 +522,11 @@ class ContactResolver:
 
     def _qbo_name_for(self, acct: Account, email: str, single: bool) -> tuple[str | None, str | None]:
         first, last = acct.first_name, acct.last_name
+        if not first:
+            return None, None
+        if " " in first.strip():                 # QuickBooks often holds the full name in the first-name field
+            f2, l2 = split_name(first)
+            first, last = f2, last or l2
         if not first:
             return None, None
         local = email.split("@", 1)[0].lower()
@@ -552,6 +590,7 @@ class ContactResolver:
             return fn() or []
         except Exception as exc:              # mailbox trouble degrades to "no inbox evidence", never a crash
             self.stats["mail_errors"] += 1
+            self.last_mail_error = f"{type(exc).__name__}: {exc}"[:300]
             log.warning("inbox search failed: %s", exc)
             return []
 

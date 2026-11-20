@@ -26,7 +26,7 @@ SEG = {"A": "Micro-Metallizer", "B": "Carbitron 300", "C": "Micro-Jet 200", "D":
 
 def build_metrics(db: DB, world: World, today: date, min_holdout: int = 20) -> dict:
     with db.engine.begin() as c:
-        trs = [dict(r) for r in c.execute(select(tracks)).mappings()]
+        trs = [dict(r) for r in c.execute(select(tracks).where(tracks.c.flow == "first_time")).mappings()]
         tcs = [dict(r) for r in c.execute(select(touches)).mappings()]
         eng = {r["touch_id"]: dict(r) for r in c.execute(select(engagement)).mappings()}
         reviews = [dict(r) for r in c.execute(select(review_queue).where(review_queue.c.resolved_at.is_(None))).mappings()]

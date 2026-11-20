@@ -118,6 +118,29 @@ def test_inbox_scoring_prefers_the_person_who_asked_how_to_use_it():
     assert out["dreyes@acme.com"].title == "Process Engineer"
 
 
+def test_product_names_and_order_talk_do_not_make_someone_a_user():
+    msgs = [msg("Westak Purchasing", "fmendez@westak.com", "PO 88231 - 24K Gold Micro-Metallizer Plating Pen",
+                "Please confirm the purchase order for 10 Gold Plating Pens and Tungsten Carbide Electrodes.\n\n"
+                "24K Gold Micro-Metallizer Plating Pen\nWestak Manufacturing"),
+            msg("Sen Pham", "sen_pham@jabil.com", "pen", "How do we store the pens? What is the shelf life?\n\nSen Pham\nGIP Operation Procurement"),
+            msg("Nisa", "purchasing1@bokopt.com", "RE: order", "What voltage do you recommend?\n\nWe have received the plating pen in good condition.")]
+    out = {c.email: c for c in score_inbox(msgs, {"westak.com", "jabil.com", "bokopt.com"}, {"hunterproducts.com"},
+                                           PATTERNS, D(2026, 1, 10))}
+    assert out["fmendez@westak.com"].role == "buyer" and out["fmendez@westak.com"].first_name is None
+    assert out["fmendez@westak.com"].title is None
+    assert out["sen_pham@jabil.com"].role == "buyer"            # a procurement title beats a usage question
+    assert out["purchasing1@bokopt.com"].role == "buyer" and out["purchasing1@bokopt.com"].title is None
+
+
+def test_signature_titles_are_strict():
+    for text in ["x\n24K Gold Micro-Metallizer Plating Pen", "x\nStreamline Electronics Manufacturing (SEM)",
+                 "x\n[UK Authorised Economic Operator]", "x\nWe have received the plating pen in good condition."]:
+        assert signature_title(text) is None, text
+    assert signature_title("Alex Andos | Purchasing Intern | TTM Technologies") == "Purchasing Intern"
+    assert title_role("Accounting Process Analyst") == "unknown" and title_role("Sales Engineer") == "unknown"
+    assert title_role("Supplier Quality Engineer") == "user" and title_role("Rework Technician") == "user"
+
+
 def test_quoted_thread_text_does_not_count_as_their_question():
     m = msg("Sam Ortiz", "sortiz@acme.com", "RE: order", "Thanks, got it.\n\nFrom: Hunter\nUse the degreaser before plating.")
     (c,) = score_inbox([m], {"acme.com"}, {"hunterproducts.com"}, PATTERNS, D(2026, 1, 10))
@@ -243,6 +266,16 @@ def test_quickbooks_person_named_on_the_shipping_label_is_a_user_with_no_apollo_
     assert h.apollo.match_calls == 0
 
 
+def test_buyer_named_on_the_shipping_label_stays_a_buyer(h):
+    h.qbo.customer("43", "Pacaero", "sdunning@pacaero.com", given="Sandra Dunning")
+    h.qbo.order("43", D(2026, 1, 1), GOLD_KIT, ship_date=D(2026, 1, 1), ship=["Sandra Dunning", "Pacaero"])
+    mail = FakeMail({"pacaero.com": [msg("Sandra Dunning", "sdunning@pacaero.com", "PO 7781",
+                                         "Purchase order attached, please confirm ship date.")]})
+    h.run(D(2026, 1, 2), mail=mail)
+    tr = h.track("acct:43")
+    assert tr["contact_role"] == "buyer" and tr["first_name"] == "Sandra"
+
+
 def test_shared_purchasing_mailbox_is_treated_as_a_buyer(h):
     h.qbo.customer("41", "Ampel Inc.", "purchasing@ampelinc.com", given="Andy")
     h.qbo.order("41", D(2026, 1, 1), GOLD_KIT, ship_date=D(2026, 1, 1))
@@ -339,7 +372,7 @@ def test_every_role_renders_cleanly_for_every_segment_and_email(h):
 def test_buyer_copy_differs_and_user_copy_is_the_standard_one(h):
     r = Renderer(h.cfg)
     buyer, user, unknown = (r.render(_track(h, x), "e3") for x in ("buyer", "user", "unknown"))
-    assert "lead time" in buyer.subject.lower() and "Net 30" in buyer.body and buyer.variant == "buyer"
+    assert "lead time" in buyer.subject.lower() and "terms are available on request" in buyer.body and buyer.variant == "buyer"
     assert user.body == unknown.body and user.variant == "standard"
     assert "50 pens" in r.render(_track(h, "buyer"), "e4").body
     assert "50 pens" not in r.render(_track(h, "buyer", "B"), "e4").body

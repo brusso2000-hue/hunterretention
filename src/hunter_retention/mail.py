@@ -52,7 +52,7 @@ class GraphMail:
         for box in self.mailboxes:
             # /messages covers every folder, so Sent Items (our replies) are included
             resp = request_with_retry(self.session, "GET", f"{GRAPH}/users/{box}/messages", limiter=self.limiter,
-                                      headers=self._auth(),
+                                      headers=self._auth(), max_attempts=2,
                                       params={"$search": f'"{kql}"', "$top": self.max, "$select": FIELDS})
             for m in resp.json().get("value", []):
                 d = parse_date(m.get("receivedDateTime"))
@@ -68,7 +68,35 @@ class GraphMail:
         return out
 
     def by_domain(self, domain: str, since: date) -> list[MailMessage]:
-        return self._search(f"participants:{domain}", since)
+        # A plain keyword search matches the domain in any address or the body. The KQL "participants:"
+        # property is rejected by Exchange for app-only access ("Unrecognized filter ... OrFilter").
+        # score_inbox() then keeps only people whose own address is on the customer's domain.
+        return self._search(domain, since)
 
     def by_text(self, text: str, since: date) -> list[MailMessage]:
         return self._search(text.replace('"', " "), since)
+
+    def check(self) -> list[dict]:
+        """Diagnostics: can we read each mailbox, and does search work? Returns status and error codes only,
+        never message content."""
+        out = []
+        auth = self._auth()
+        plain = {"Authorization": auth["Authorization"]}
+        tests = [("list one message", plain, {"$top": 1, "$select": "receivedDateTime"}),
+                 ("search from:domain", plain, {"$search": '"from:ttmtech.com"', "$top": 5, "$select": "receivedDateTime"}),
+                 ("search to:domain", plain, {"$search": '"to:ttmtech.com"', "$top": 5, "$select": "receivedDateTime"}),
+                 ("search, as the lookup sends it", auth, {"$search": '"ttmtech.com"',
+                                                           "$top": self.max, "$select": FIELDS})]
+        for box in self.mailboxes:
+            for name, headers, params in tests:
+                r = self.session.get(f"{GRAPH}/users/{box}/messages", headers=headers, params=params, timeout=60)
+                err = {}
+                if r.status_code >= 400:
+                    try:
+                        err = (r.json() or {}).get("error") or {}
+                    except ValueError:
+                        err = {"message": r.text[:200]}
+                out.append({"mailbox": box, "test": name, "status": r.status_code, "code": err.get("code"),
+                            "message": (err.get("message") or "")[:240],
+                            "found": len(r.json().get("value", [])) if r.status_code < 400 else None})
+        return out
