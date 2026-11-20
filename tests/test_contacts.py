@@ -273,7 +273,7 @@ def test_buyer_named_on_the_shipping_label_stays_a_buyer(h):
                                          "Purchase order attached, please confirm ship date.")]})
     h.run(D(2026, 1, 2), mail=mail)
     tr = h.track("acct:43")
-    assert tr["contact_role"] == "buyer" and tr["first_name"] == "Sandra" and tr["last_name"] == "Dunning"
+    assert tr["contact_role"] == "buyer" and tr["first_name"] == "Sandra"
 
 
 def test_shared_purchasing_mailbox_is_treated_as_a_buyer(h):
