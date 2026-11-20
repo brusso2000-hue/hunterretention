@@ -56,6 +56,9 @@ class Secrets:
     allow_live_send: bool
     alert_webhook_url: str | None
     token_encryption_key: str | None
+    ms_tenant_id: str | None = None          # Microsoft Graph, read-only inbox search for the contact lookup
+    ms_client_id: str | None = None
+    ms_client_secret: str | None = None
 
     @classmethod
     def from_env(cls) -> "Secrets":
@@ -69,6 +72,9 @@ class Secrets:
             allow_live_send=os.environ.get("HP_ALLOW_LIVE_SEND", "").lower() == "true",
             alert_webhook_url=os.environ.get("ALERT_WEBHOOK_URL"),
             token_encryption_key=os.environ.get("HP_TOKEN_KEY"),
+            ms_tenant_id=os.environ.get("MS_TENANT_ID") or None,
+            ms_client_id=os.environ.get("MS_CLIENT_ID") or None,
+            ms_client_secret=os.environ.get("MS_CLIENT_SECRET") or None,
         )
 
 

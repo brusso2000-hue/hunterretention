@@ -15,6 +15,10 @@ on:
         description: "Force a full QuickBooks re-sync"
         required: false
         type: boolean
+      contacts_preview_days:
+        description: "Also write a contact-lookup preview for buyers from the last N days (writes nothing, 0 credits)"
+        required: false
+        type: string
 
 # Never let two runs overlap (idempotency relies on one writer at a time).
 concurrency:
@@ -46,10 +50,16 @@ jobs:
           # Second key for live email. Set the repository VARIABLE HP_ALLOW_LIVE_SEND=true only at go-live.
           HP_ALLOW_LIVE_SEND: ${{ vars.HP_ALLOW_LIVE_SEND }}
           HP_MODE: ${{ inputs.mode }}
+          # Read-only Outlook search for the contact lookup (optional; the lookup skips the inbox step without it).
+          MS_TENANT_ID: ${{ secrets.MS_TENANT_ID }}
+          MS_CLIENT_ID: ${{ secrets.MS_CLIENT_ID }}
+          MS_CLIENT_SECRET: ${{ secrets.MS_CLIENT_SECRET }}
+          PREVIEW_DAYS: ${{ inputs.contacts_preview_days }}
         run: |
           ARGS=""
           if [ "${{ inputs.full_sync }}" = "true" ]; then ARGS="--full-sync"; fi
           hunter-retention run $ARGS
+          if [ -n "$PREVIEW_DAYS" ]; then hunter-retention contacts preview --days "$PREVIEW_DAYS"; fi
       - name: Upload report
         if: always()
         uses: actions/upload-artifact@v4

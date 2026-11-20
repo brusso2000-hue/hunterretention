@@ -14,7 +14,7 @@ from sqlalchemy import select
 
 from .classify import IGNORED, LIFECYCLE, UNCLASSIFIED, Classifier, Line, OrderClass
 from .config import Config
-from .db import DB, qbo_customers, qbo_txn_lines, qbo_txns
+from .db import DB, contacts, qbo_customers, qbo_txn_lines, qbo_txns
 from .identity import Account, resolve_accounts
 from .util import parse_emails
 
@@ -36,6 +36,9 @@ class Order:
     product_amount: float
     refunded: bool = False
     cls: OrderClass | None = None
+    doc_number: str | None = None
+    po_number: str | None = None
+    ship_lines: tuple[str, ...] = ()         # ShipAddr Line1..Line5, where "Attn: Paul" lives
 
     def lines_of(self, family: str, roles: tuple[str, ...] | None = None) -> list[Line]:
         return [ln for ln in self.lines if ln.cls.status == LIFECYCLE and ln.cls.family == family
@@ -120,7 +123,9 @@ def load_world(db: DB, cfg: Config, classifier: Classifier) -> World:
         countable = {LIFECYCLE, UNCLASSIFIED} | ({IGNORED} if ignored_counts else set())
         product_amount = sum(ln.amount for ln in lines if ln.cls.status in countable)
         o = Order(t["pk"], t["txn_type"], t["customer_id"], t["txn_date"], t["ship_date"],
-                  t["ship_country"], t["tracking_num"], t["total_amt"] or 0, lines, product_amount)
+                  t["ship_country"], t["tracking_num"], t["total_amt"] or 0, lines, product_amount,
+                  doc_number=t.get("doc_number"), po_number=po_number_of(t.get("raw")),
+                  ship_lines=ship_lines_of(t.get("raw")))
         world.all_orders.setdefault(acct, []).append(o)
 
     for acct, orders in world.all_orders.items():
@@ -137,7 +142,44 @@ def load_world(db: DB, cfg: Config, classifier: Classifier) -> World:
                     used.add(cr["pk"])
                     break
         world.orders[acct] = [o for o in orders if o.product_amount >= min_amount and not o.refunded]
+    apply_contacts(db, world)
     return world
+
+
+def po_number_of(raw: dict | None) -> str | None:
+    raw = raw or {}
+    if raw.get("PONumber"):
+        return str(raw["PONumber"]).strip() or None
+    for cf in raw.get("CustomField") or []:
+        if "p.o" in (cf.get("Name") or "").lower() or (cf.get("Name") or "").lower().startswith("po"):
+            v = (cf.get("StringValue") or "").strip()
+            if v:
+                return v
+    return None
+
+
+def ship_lines_of(raw: dict | None) -> tuple[str, ...]:
+    ship = (raw or {}).get("ShipAddr") or {}
+    return tuple(str(ship[k]).strip() for k in ("Line1", "Line2", "Line3", "Line4", "Line5") if ship.get(k))
+
+
+def apply_contacts(db: DB, world: World) -> None:
+    """Overlay the looked-up contact (contacts.status = primary) on each account, so planning and sending
+    use the person we found instead of whatever address sits on the QuickBooks record."""
+    with db.engine.begin() as c:
+        rows = c.execute(select(contacts).where(contacts.c.status == "primary")).mappings().all()
+    for r in rows:
+        acct = world.accounts.get(r["account_key"])
+        if not acct:
+            continue
+        email = r["email"].lower()
+        acct.emails = [email] + [e for e in acct.emails if e != email]
+        if email in acct.role_emails:
+            acct.role_emails.remove(email)
+        if r["first_name"] or r["source"] != "qbo":
+            acct.first_name, acct.last_name = r["first_name"], r["last_name"]
+        acct.contact_role = r["role"] or "unknown"
+        acct.contact_source = r["source"] or "qbo"
 
 
 def _pk_sort(pk: str):

@@ -102,6 +102,8 @@ tracks = Table(
     Column("first_name", String(128)),
     Column("last_name", String(128)),
     Column("company", String(255)),
+    Column("contact_role", String(24)),      # user | buyer | owner_operator | unknown (picks the email version)
+    Column("contact_source", String(32)),    # qbo | inbox | ship_to | po_email | apollo_search | manual
     Column("segment", String(8)),            # A B C D
     Column("subsegment", String(64)),        # gold | nickel | tin | multi | carbitron | ...
     Column("primary_family", String(64)),
@@ -210,6 +212,24 @@ runs = Table(
     Column("error", Text),
 )
 
+contacts = Table(
+    "contacts", metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("account_key", String(128), nullable=False, index=True),
+    Column("email", String(255), nullable=False),
+    Column("first_name", String(128)),
+    Column("last_name", String(128)),
+    Column("title", String(255)),
+    Column("role", String(24)),              # user | buyer | owner_operator | unknown
+    Column("source", String(32)),            # qbo | inbox | ship_to | po_email | apollo_search | manual
+    Column("score", Integer),                # 0-100 confidence that this is the right person
+    Column("status", String(16)),            # primary | alternate | suggested | rejected
+    Column("evidence", JSON),                # short human-readable reasons; never email text
+    Column("created_at", DateTime),
+    Column("updated_at", DateTime),
+    UniqueConstraint("account_key", "email", name="uq_contact_account_email"),
+)
+
 apollo_fields = Table(
     "apollo_fields", metadata,
     Column("label", String(128), primary_key=True),
@@ -231,6 +251,16 @@ class DB:
 
     def create_all(self) -> None:
         metadata.create_all(self.engine)
+        self._add_missing_columns()
+
+    def _add_missing_columns(self) -> None:
+        """create_all() adds new tables but not new columns on tables that already exist."""
+        from sqlalchemy import inspect, text
+        have = {c["name"] for c in inspect(self.engine).get_columns("tracks")}
+        with self.engine.begin() as c:
+            for name, ddl in (("contact_role", "VARCHAR(24)"), ("contact_source", "VARCHAR(32)")):
+                if name not in have:
+                    c.execute(text(f"ALTER TABLE tracks ADD COLUMN {name} {ddl}"))
 
     # ---- small helpers -----------------------------------------------------
     def get_state(self, key: str, default: str | None = None) -> str | None:

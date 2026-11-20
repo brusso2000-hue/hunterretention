@@ -49,3 +49,28 @@ Every decision is in the `events` table: `track_created`, `enrolled`, `reorder_d
 ```sql
 select ts, kind, account_key, message from events order by id desc limit 50;
 ```
+
+## Contact lookup (who gets the email)
+
+QuickBooks often holds an accounts-payable inbox, not the person using the product. Before planning, the
+daily job looks up each new first-time buyer once and stores the answer in the `contacts` table.
+
+Order tried: QuickBooks emails, our Outlook history for the customer's domain, the sender of the PO email,
+the shipping-label name via Apollo (1 credit), then an Apollo engineer search for first orders of $1,000+
+(always sent to review). Settings are under `contacts:` in `config/settings.yaml`.
+
+Each contact is tagged `user`, `buyer`, `owner_operator` or `unknown`. The tag picks the email version
+(`role_variants:` in `content/emails.yaml`). Buyers skip the technique email.
+
+| Task | Command |
+|---|---|
+| See who it would pick for recent buyers (writes nothing, 0 credits) | `hunter-retention contacts preview --days 730` |
+| List stored contacts | `hunter-retention contacts list` |
+| Choose a contact by hand (always wins) | `hunter-retention contacts set --account acct:123 --email a@b.com --role user` |
+| Accept a suggestion from the review list | `hunter-retention review --resolve N --action enroll --email a@b.com --role user` |
+| Read an email as a given contact type | `hunter-retention preview --segment A --app gold --touch e3 --role buyer` |
+
+Safety rules: role inboxes are never emailed, found addresses must be on the customer's own domain,
+Apollo emails must be verified, suppressed addresses are skipped, Apollo lookups run only in the modes in
+`contacts.credit_modes` and stop at `contacts.monthly_credit_cap` per month. Email text is read for scoring
+and never stored.

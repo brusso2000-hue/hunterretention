@@ -78,3 +78,15 @@ Then in GitHub: Settings > Secrets and variables > Actions > **Variables** > `HP
 
 ## 10. Alerts (optional but recommended)
 Add `ALERT_WEBHOOK_URL` (Teams channel > Connectors > Incoming Webhook). Without it you still get GitHub's failed-workflow email.
+
+## Optional: Outlook search for the contact lookup
+
+Lets the daily job see who at a customer has emailed hunter@ or sales@. Read-only.
+
+1. Microsoft Entra admin center > App registrations > New registration. Name it "Hunter retention mail read".
+2. API permissions > Add > Microsoft Graph > Application permissions > `Mail.Read` > Grant admin consent.
+3. Certificates & secrets > New client secret. Copy the value.
+4. Add three GitHub repository secrets: `MS_TENANT_ID`, `MS_CLIENT_ID`, `MS_CLIENT_SECRET`.
+5. Recommended: restrict the app to the two mailboxes in `contacts.mailboxes` with an application access policy.
+
+Without these secrets the lookup skips the inbox and PO-email steps and still uses QuickBooks and Apollo.

@@ -6,6 +6,7 @@ import json
 import logging
 import sys
 from datetime import date
+from pathlib import Path
 
 from sqlalchemy import delete, insert, select, update
 
@@ -40,14 +41,93 @@ def _apollo(cfg):
     return ApolloClient(cfg.secrets.apollo_api_key) if cfg.secrets.apollo_api_key else None
 
 
+def _mail(cfg):
+    """Read-only Outlook search for the contact lookup. None when the Microsoft app is not set up yet."""
+    s = cfg.secrets
+    boxes = cfg.s("contacts.mailboxes", []) or []
+    if not (s.ms_tenant_id and s.ms_client_id and s.ms_client_secret and boxes):
+        return None
+    from .mail import GraphMail
+    return GraphMail(s.ms_tenant_id, s.ms_client_id, s.ms_client_secret, boxes)
+
+
 def cmd_run(cfg, args) -> int:
     db = _db(cfg)
     today = date.fromisoformat(args.today) if args.today else None
     qbo = None if args.skip_sync else _qbo(cfg, db)
     apollo = _apollo(cfg) if cfg.mode != "dry_run" else None
     stats = run_daily(cfg, db, qbo, apollo, Alerter(cfg.secrets.alert_webhook_url), today=today,
-                      skip_sync=args.skip_sync, force_full_sync=args.full_sync)
+                      skip_sync=args.skip_sync, force_full_sync=args.full_sync, mail=_mail(cfg))
     print(json.dumps(stats, indent=2, default=str))
+    return 0
+
+
+def cmd_contacts(cfg, args) -> int:
+    """preview: show who the lookup would pick for recent buyers. Writes nothing, spends no credits.
+    list: stored contacts.  set: choose a contact by hand (always wins)."""
+    import csv
+    from collections import Counter
+    from datetime import timedelta
+
+    from .classify import Classifier
+    from .contacts import ContactResolver, set_manual_contact
+    from .db import contacts as contacts_t
+    from .runner import local_today
+    from .world import first_purchase, load_world
+
+    db = _db(cfg)
+    if args.action == "set":
+        if not (args.account and args.email):
+            print("usage: contacts set --account acct:123 --email a@b.com [--role user|buyer|owner_operator]")
+            return 1
+        set_manual_contact(db, args.account, args.email, args.role or "unknown", args.first, args.last)
+        print(f"{args.account}: contact set to {args.email} ({args.role or 'unknown'})")
+        return 0
+    if args.action == "list":
+        with db.engine.begin() as c:
+            rows = c.execute(select(contacts_t).order_by(contacts_t.c.account_key, contacts_t.c.status)).mappings().all()
+        for r in rows:
+            print(f"{r['account_key']:<14} {r['status']:<10} {r['role']:<15} {r['score']:>3} {r['source']:<14} {r['email']}")
+        print(f"{len(rows)} contact(s)")
+        return 0
+
+    today = local_today(cfg)
+    clf = Classifier(cfg.products, cfg.lifecycle)
+    world = load_world(db, cfg, clf)
+    mail = _mail(cfg)
+    resolver = ContactResolver(db, cfg, world, clf, today, mail, None)
+    since = today - timedelta(days=args.days)
+    rows, tally = [], Counter()
+    for key, acct in world.accounts.items():
+        orders = world.orders.get(key) or []
+        if not orders or orders[-1].date < since:
+            continue
+        res = resolver.resolve(acct, first_purchase(world, key, clf, resolver.merge_days), allow_credits=False)
+        p = res.primary
+        outcome = (f"{p.role} via {p.source}" if p else
+                   ("needs Apollo lookup" if res.would_look_up else "no contact found"))
+        tally[(res.qbo_had, outcome)] += 1
+        best = res.suggested[0] if res.suggested else None
+        rows.append({
+            "account": key, "company": res.company, "quickbooks_had": res.qbo_had,
+            "picked_email": p.email if p else "", "picked_name": p.name if p else "",
+            "picked_role": p.role if p else "", "picked_source": p.source if p else "",
+            "picked_score": p.score if p else "", "why": "; ".join(p.evidence) if p else "",
+            "suggestion": f"{best.name} <{best.email}> ({best.role}, {best.score})" if best else "",
+            "apollo_lookup_needed": "; ".join(res.would_look_up),
+            "last_order": str(orders[-1].date), "last_order_total": round(orders[-1].total, 2),
+        })
+    out = Path(args.out or ROOT / "reports" / "contact_preview.csv")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open("w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0].keys()) if rows else ["account"])
+        w.writeheader()
+        w.writerows(rows)
+    print(f"Contact preview for {len(rows)} accounts with an order in the last {args.days} days")
+    print(f"Inbox search: {'on' if mail else 'OFF (Microsoft app not set up)'}; Apollo lookups: preview only, 0 credits")
+    for (had, outcome), n in sorted(tally.items(), key=lambda kv: (kv[0][0], -kv[1])):
+        print(f"  QuickBooks had {had:<10} -> {outcome:<28} {n}")
+    print(f"Details: {out}")
     return 0
 
 
@@ -124,18 +204,20 @@ def cmd_suppress(cfg, args) -> int:
 def cmd_review(cfg, args) -> int:
     db = _db(cfg)
     if args.resolve:
+        manual_contact = None
         with db.engine.begin() as c:
             r = c.execute(select(review_queue).where(review_queue.c.id == args.resolve)).mappings().first()
             if not r:
                 print("not found"); return 1
             if args.action in ("enroll", "exclude") and r["kind"] in (
-                    "domain_match_review", "role_email_only", "missing_email"):
+                    "domain_match_review", "role_email_only", "missing_email", "contact_suggestion"):
                 tr = c.execute(select(tracks).where(tracks.c.account_key == r["ref"])).mappings().first()
                 if tr:
                     if args.action == "enroll":
                         vals = {"status": "active", "status_reason": f"review:{r['kind']}"}
                         if args.email:
                             vals["email"] = args.email.lower()
+                            manual_contact = (r["ref"], args.email)
                         c.execute(update(tracks).where(tracks.c.id == tr["id"]).values(**vals, updated_at=utcnow()))
                     else:
                         c.execute(update(tracks).where(tracks.c.id == tr["id"]).values(
@@ -143,6 +225,10 @@ def cmd_review(cfg, args) -> int:
                         c.execute(update(touches).where((touches.c.track_id == tr["id"]) & (touches.c.status == "scheduled"))
                                   .values(status="canceled", reason="review_excluded"))
             c.execute(update(review_queue).where(review_queue.c.id == args.resolve).values(resolved_at=utcnow()))
+        if manual_contact:
+            # remember the choice so the daily lookup never overrides it
+            from .contacts import set_manual_contact
+            set_manual_contact(db, manual_contact[0], manual_contact[1], getattr(args, "role", None) or "unknown")
         print(f"resolved {args.resolve} ({args.action})"); return 0
     with db.engine.begin() as c:
         rows = c.execute(select(review_queue).where(review_queue.c.resolved_at.is_(None))
@@ -184,7 +270,13 @@ def cmd_preview(cfg, args) -> int:
         tr = dict(tr)
     else:
         tr = sample_track(cfg, args.segment, args.app)
+    if getattr(args, "role", None):
+        tr["contact_role"] = args.role
+        tr.setdefault("order_summary", {}).setdefault("po_number", "613707")
     out = r.render(tr, args.touch)
+    if out.skip:
+        print(f"(a {out.variant} does not get {args.touch})")
+        return 0
     print(f"Subject: {out.subject}\n\n{out.body}")
     if out.unverified:
         print(f"--- {len(out.unverified)} VERIFY marker(s): live sending blocked until resolved ---")
@@ -280,11 +372,19 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--reason"); s.add_argument("--support-hold", action="store_true"); s.set_defaults(fn=cmd_suppress)
     s = sub.add_parser("review"); s.add_argument("--resolve", type=int)
     s.add_argument("--action", choices=["enroll", "exclude", "done"], default="done"); s.add_argument("--email")
+    s.add_argument("--role", choices=["user", "buyer", "owner_operator", "unknown"])
     s.set_defaults(fn=cmd_review)
     s = sub.add_parser("audit-items"); s.add_argument("--all", action="store_true"); s.set_defaults(fn=cmd_audit_items)
     s = sub.add_parser("preview"); s.add_argument("--segment", default="A"); s.add_argument("--touch", default="e1")
-    s.add_argument("--app"); s.add_argument("--track", type=int); s.set_defaults(fn=cmd_preview)
+    s.add_argument("--app"); s.add_argument("--track", type=int)
+    s.add_argument("--role", choices=["user", "buyer", "owner_operator", "unknown"]); s.set_defaults(fn=cmd_preview)
     s = sub.add_parser("content-lint"); s.set_defaults(fn=cmd_content_lint)
+    s = sub.add_parser("contacts", help="contact lookup: preview | list | set")
+    s.add_argument("action", choices=["preview", "list", "set"])
+    s.add_argument("--days", type=int, default=730); s.add_argument("--out")
+    s.add_argument("--account"); s.add_argument("--email"); s.add_argument("--first"); s.add_argument("--last")
+    s.add_argument("--role", choices=["user", "buyer", "owner_operator", "unknown"])
+    s.set_defaults(fn=cmd_contacts)
     s = sub.add_parser("report"); s.add_argument("--today"); s.add_argument("--out"); s.set_defaults(fn=cmd_report)
 
     args = p.parse_args(argv)
