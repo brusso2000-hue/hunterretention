@@ -56,7 +56,8 @@ identity:
   role_address_patterns: ["(.*[._-])?a[._-]?p([._-].*)?", "ap(forest|grove|plant|site|dept|team|inbox|mail|[0-9])[a-z0-9]*",
                           ".*accounts?[._-]?payable.*", ".*payables?.*", ".*invoic(e|es|ing).*", ".*billing.*",
                           ".*accounting.*", ".*accounts?[._-]?receivable.*", "(.*[._-])?ar([._-].*)?",
-                          ".*receiving.*", ".*finance.*", "no[._-]?reply.*", "do[._-]?not[._-]?reply.*"]
+                          ".*receiving.*", ".*finance.*", "no[._-]?reply.*", "do[._-]?not[._-]?reply.*",
+                          ".*remit.*", ".*supplier.*", ".*vendor.*", ".*data[._-]?request.*", ".*notification.*"]
   freemail_domains: [gmail.com, yahoo.com, hotmail.com, outlook.com, aol.com, icloud.com, live.com, msn.com,
                      comcast.net, verizon.net, att.net, me.com, protonmail.com, ymail.com, qq.com, 163.com]
 
