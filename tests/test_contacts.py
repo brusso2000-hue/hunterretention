@@ -266,6 +266,16 @@ def test_quickbooks_person_named_on_the_shipping_label_is_a_user_with_no_apollo_
     assert h.apollo.match_calls == 0
 
 
+def test_buyer_named_on_the_shipping_label_stays_a_buyer(h):
+    h.qbo.customer("43", "Pacaero", "sdunning@pacaero.com", given="Sandra Dunning")
+    h.qbo.order("43", D(2026, 1, 1), GOLD_KIT, ship_date=D(2026, 1, 1), ship=["Sandra Dunning", "Pacaero"])
+    mail = FakeMail({"pacaero.com": [msg("Sandra Dunning", "sdunning@pacaero.com", "PO 7781",
+                                         "Purchase order attached, please confirm ship date.")]})
+    h.run(D(2026, 1, 2), mail=mail)
+    tr = h.track("acct:43")
+    assert tr["contact_role"] == "buyer" and tr["first_name"] == "Sandra" and tr["last_name"] == "Dunning"
+
+
 def test_shared_purchasing_mailbox_is_treated_as_a_buyer(h):
     h.qbo.customer("41", "Ampel Inc.", "purchasing@ampelinc.com", given="Andy")
     h.qbo.order("41", D(2026, 1, 1), GOLD_KIT, ship_date=D(2026, 1, 1))

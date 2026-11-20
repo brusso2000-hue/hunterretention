@@ -44,7 +44,7 @@ ROLE_RANK = {"user": 0, "owner_operator": 0, "buyer": 1, "unknown": 2}
 # also appear in product and company names, so they do not count.
 USER_TITLE = re.compile(
     r"\b(engineer|technician|technologist|inspector|scientist|chemist|machinist|toolmaker|assembler|plater|"
-    r"foreman|(production|process|manufacturing|plating|rework|repair|maintenance|quality|lab|laboratory|shop|"
+    r"(production|process|manufacturing|plating|rework|repair|maintenance|quality|lab|laboratory|shop|"
     r"operations) (manager|supervisor|lead|leader|specialist|tech|operator|coordinator)|machine operator|"
     r"quality (assurance|control)|r&d)\b", re.I)
 BUYER_TITLE = re.compile(
@@ -407,6 +407,12 @@ class ContactResolver:
             best.title = best.title or other.title
             if best.role == "unknown":
                 best.role = other.role
+            # Purchasing evidence beats a shipping-label match: at small companies the box is addressed
+            # to the buyer. Only a usage question or a hands-on title keeps them a user.
+            ev = " ".join(best.evidence)
+            if "buyer" in (c.role, old.role) and best.role == "user" \
+                    and "asked a technical question" not in ev and title_role(best.title) != "user":
+                best.role = "buyer"
             cands[e] = best
 
         orders = list(fp.orders) if fp else []
@@ -513,6 +519,11 @@ class ContactResolver:
 
     def _qbo_name_for(self, acct: Account, email: str, single: bool) -> tuple[str | None, str | None]:
         first, last = acct.first_name, acct.last_name
+        if not first:
+            return None, None
+        if " " in first.strip():                 # QuickBooks often holds the full name in the first-name field
+            f2, l2 = split_name(first)
+            first, last = f2, last or l2
         if not first:
             return None, None
         local = email.split("@", 1)[0].lower()
