@@ -100,7 +100,7 @@ items:
   - {name: "TS3053", family: carbitron, role: accessory, display: "Vibrator Hand Piece with Power Cable"}
   - {name: "TS3045", family: carbitron, role: accessory, display: "Power Cable (Red)"}
   - {name: "TS3046", family: carbitron, role: accessory, display: "Ground Cable (Black)"}
-  # TS3050 "Power Supply" ($350) is deliberately NOT mapped: confirm which system it belongs to.
+  - {name: "TS3050", family: carbitron, role: equipment, display: "Carbitron Power Supply"}   # sold once, Oct 2022
 
   # ---------------------------------------------------------------- Micro-Jet 200
   - {name: "AB2000", family: micro_jet, role: equipment, display: "Micro-Jet 200", url: "https://hunterproducts.com/systems/micro-jet-200/"}

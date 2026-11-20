@@ -205,23 +205,6 @@ tracks:
         {{ sender_company }}
         {{ sender_phone }}
 
-    e2:
-      subject: "Micro-Jet 200 tips"
-      body: |
-        {{ greeting }}
-
-        About a month in with the Micro-Jet 200, here are a few notes that help.
-
-        {% for b in blocks %}
-        {{ b }}
-
-        {% endfor %}
-        Media we stock: aluminum oxide (AB2024, AB2025), silicon carbide (AB2028, AB2029) and glass beads (AB2032). Media page: https://hunterproducts.com/store/?type=media
-
-        Best,
-        {{ sender_name }}
-        {{ sender_company }}
-
     e3:
       subject: "Micro-Jet 200 nozzles and media"
       body: |
@@ -445,7 +428,7 @@ role_variants:
         Parts and supplies: {{ store_url }}
         {% endif %}
         Lead time: orders ship the same or next business day.
-        Terms: Net 30 is available, and we take ACH.
+        Terms: payment terms are available on request, and we take ACH.
 
         Reply with quantities and a PO, or request a formal quote here: {{ quote_url }}
 
@@ -503,10 +486,4 @@ role_variants:
 
 # Tip blocks inserted into e2 by application (A) or product line (B, C).
 # A customer buying two metals gets both blocks (max_application_blocks).
-blocks:
-  C:
-    e2:
-      micro_jet: |
-        - [[VERIFY: Micro-Jet tip 1, e.g. air supply requirements (dry, filtered air)]]
-        - [[VERIFY: Micro-Jet tip 2, e.g. matching media type and grit to the job]]
-        - [[VERIFY: Micro-Jet tip 3, e.g. nozzle distance and angle]]
+blocks: {}

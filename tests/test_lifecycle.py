@@ -438,9 +438,9 @@ def test_live_blocked_without_env_flag(tmp_path):
 
 
 def test_unverified_copy_blocks_live_send(tmp_path):
-    h = Harness(tmp_path)          # real content, still containing VERIFY markers in the Micro-Jet e2 tips
-    h.qbo.customer("10", "Acme Tooling", "jane@acmetooling.com", given="Jane")
-    h.qbo.order("10", D(2026, 1, 1), [("AB2000", 1, 900.0)], ship_date=D(2026, 1, 1))
+    h = Harness(tmp_path)          # a placeholder left in any email must block that email from going live
+    h.cfg.emails["tracks"]["A"]["e2"]["body"] += "\n[[VERIFY: wording still to be confirmed]]\n"
+    new_gold_customer(h)
     h.run_range(D(2026, 1, 1), D(2026, 2, 6))
     t = h.touches(acct("10"))
     assert t["e1"]["status"] == "sent"                       # e1 has no markers

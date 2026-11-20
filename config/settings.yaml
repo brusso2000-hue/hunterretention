@@ -125,4 +125,4 @@ sandbox:
 analytics:
   # % of new customers randomly held out (no emails) so revenue lift can be measured honestly.
   # Set to 0 to email everyone.
-  holdout_pct: 10
+  holdout_pct: 0

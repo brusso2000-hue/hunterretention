@@ -372,7 +372,7 @@ def test_every_role_renders_cleanly_for_every_segment_and_email(h):
 def test_buyer_copy_differs_and_user_copy_is_the_standard_one(h):
     r = Renderer(h.cfg)
     buyer, user, unknown = (r.render(_track(h, x), "e3") for x in ("buyer", "user", "unknown"))
-    assert "lead time" in buyer.subject.lower() and "Net 30" in buyer.body and buyer.variant == "buyer"
+    assert "lead time" in buyer.subject.lower() and "terms are available on request" in buyer.body and buyer.variant == "buyer"
     assert user.body == unknown.body and user.variant == "standard"
     assert "50 pens" in r.render(_track(h, "buyer"), "e4").body
     assert "50 pens" not in r.render(_track(h, "buyer", "B"), "e4").body

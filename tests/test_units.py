@@ -42,7 +42,7 @@ def test_real_catalog_fully_classified_except_known_unknowns(clf):
     names = [n.strip() for n in REAL_CATALOG.replace("\n", "").split("|")]
     assert len(names) == 123
     unclassified = [n for n in names if clf.classify_item(None, n).status == UNCLASSIFIED]
-    assert unclassified == ["TS3050"]       # $350 "Power Supply": owner to confirm which system
+    assert unclassified == []
 
 
 @pytest.mark.parametrize("name,family,role,apps", [
