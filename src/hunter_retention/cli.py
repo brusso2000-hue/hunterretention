@@ -111,10 +111,14 @@ def cmd_contacts(cfg, args) -> int:
     resolver = ContactResolver(db, cfg, world, clf, today, mail, None)
     since = today - timedelta(days=args.days)
     rows, tally = [], Counter()
-    for key, acct in world.accounts.items():
+    recent = [(key, acct) for key, acct in world.accounts.items()
+              if (world.orders.get(key) or []) and world.orders[key][-1].date >= since]
+    # accounts with no person in QuickBooks first, then the most recent buyers
+    recent.sort(key=lambda ka: (bool(ka[1].emails), -world.orders[ka[0]][-1].date.toordinal()))
+    if args.max_accounts:
+        recent = recent[: args.max_accounts]
+    for key, acct in recent:
         orders = world.orders.get(key) or []
-        if not orders or orders[-1].date < since:
-            continue
         res = resolver.resolve(acct, first_purchase(world, key, clf, resolver.merge_days), allow_credits=False)
         p = res.primary
         outcome = (f"{p.role} via {p.source}" if p else
@@ -397,6 +401,7 @@ def main(argv: list[str] | None = None) -> int:
     s = sub.add_parser("contacts", help="contact lookup: preview | list | set")
     s.add_argument("action", choices=["preview", "list", "set", "mailcheck"])
     s.add_argument("--days", type=int, default=730); s.add_argument("--out")
+    s.add_argument("--max-accounts", type=int, default=0)
     s.add_argument("--account"); s.add_argument("--email"); s.add_argument("--first"); s.add_argument("--last")
     s.add_argument("--role", choices=["user", "buyer", "owner_operator", "unknown"])
     s.set_defaults(fn=cmd_contacts)
