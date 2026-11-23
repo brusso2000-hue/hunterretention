@@ -2,8 +2,11 @@ name: hunter-retention-daily
 
 on:
   schedule:
-    # 11:41 UTC = 6:41am ET in winter / 7:41am ET in summer. Apollo then sends inside its own schedule window.
-    - cron: "41 11 * * *"
+    # GitHub starts scheduled jobs hours late on this repo and sometimes skips one, so there are three
+    # chances a day. Running more than once is safe: the send cap is per day and nothing is sent twice.
+    - cron: "17 8 * * *"
+    - cron: "17 12 * * *"
+    - cron: "17 16 * * *"
   workflow_dispatch:
     inputs:
       mode:

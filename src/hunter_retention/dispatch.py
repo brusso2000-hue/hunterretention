@@ -17,7 +17,7 @@ import logging
 from datetime import date, datetime, timedelta
 from typing import Callable
 
-from sqlalchemy import insert, select, update
+from sqlalchemy import func, insert, select, update
 
 from .apollo import not_sent_reason, ApolloAPI, SkippedByApollo, contact_flags, message_flags
 from .alerts import Alerter
@@ -90,11 +90,17 @@ class Dispatcher:
             self.recall_stale_enrollments()
         due = self._due_touches()
         self.stats["due"] = len(due)
-        max_sends = int(self.cfg.s("dispatch.max_sends_per_run", 25))
-        sends = 0
+        # The cap is per day, not per run, so the job can safely run several times a day.
+        max_sends = int(self.cfg.s("dispatch.max_sends_per_day", self.cfg.s("dispatch.max_sends_per_run", 25)))
+        launch = self.cfg.s("dispatch.launch", {}) or {}
+        if launch.get("until") and str(self.today) < str(launch["until"]):
+            max_sends = min(max_sends, int(launch.get("max_sends_per_day", max_sends)))
+        with self.db.engine.begin() as c:
+            sends = c.execute(select(func.count()).select_from(touches).where(
+                (touches.c.sent_on == self.today) & (touches.c.status == "sent"))).scalar() or 0
         for tr, t in due:
             if sends >= max_sends:
-                self._defer(t, "per_run_cap")
+                self._defer(t, "daily_cap")
                 continue
             try:
                 sent = self._process(tr, t)

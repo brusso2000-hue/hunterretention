@@ -74,3 +74,18 @@ Safety rules: role inboxes are never emailed, found addresses must be on the cus
 Apollo emails must be verified, suppressed addresses are skipped, Apollo lookups run only in the modes in
 `contacts.credit_modes` and stop at `contacts.monthly_credit_cap` per month. Email text is read for scoring
 and never stored.
+
+## Things that changed at go-live (Nov 23, 2026)
+
+- **Live.** Mode is `live`, approval is recorded, `HP_ALLOW_LIVE_SEND=true` is set in GitHub. To pause: switch the
+  "HP Lifecycle" sequences off in Apollo, or run the workflow with input `revoke-production`.
+- **Send cap.** 5 a day until Dec 8, 2026, then 25 a day. Both are in `config/settings.yaml` under `dispatch`.
+- **Sequence pool.** Apollo sends a contact each sequence only once. There are 15 identical one-step sequences
+  (`apollo.sequences` plus `apollo.sequence_pool`); every email uses one the person has not been through. The job
+  warns when someone has 3 or fewer left. Fix: create more one-step sequences with subject `{{contact.hp_subject}}`
+  and body `{{contact.hp_body}}`, activate them, add the ids to `apollo.sequence_pool`.
+- **Catch-all domains.** Apollo refuses to send to some domains (Settings > Outbound > Sending policies). The job
+  marks those emails failed and raises an alert. Fix: add the customer's domain to the allowlist on that page.
+- **Alerts.** A failed run, or any alert, opens a GitHub issue that mentions the owner.
+- **Unsubscribe footer.** Turned off in Apollo (Settings > Personal > Profile > Email settings) at the owner's request.
+- **Test sends.** Workflow input `test-send:smoke:text` sends one sample to `sandbox.redirect_to` only.

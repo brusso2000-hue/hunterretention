@@ -128,7 +128,10 @@ eligibility:
 
 dispatch:
   max_attempts: 3
-  max_sends_per_run: 5        # launch cap. Raise to 25 after the first clean week (around Dec 8).
+  max_sends_per_day: 25       # across all runs that day
+  launch:                     # gentler cap for the first week; lifts by itself on this date
+    until: "2026-12-08"
+    max_sends_per_day: 5
   engagement_lookback_days: 150
   recall_window_hours: 72
 
