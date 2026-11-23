@@ -251,7 +251,7 @@ class DB:
         kwargs = {}
         if url.startswith("sqlite"):
             kwargs["connect_args"] = {"check_same_thread": False}
-        self.engine: Engine = create_engine(url, future=True, **kwargs)
+        self.engine: Engine = create_engine(url, future=True, pool_pre_ping=True, **kwargs)
 
     def create_all(self) -> None:
         metadata.create_all(self.engine)

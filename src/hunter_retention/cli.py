@@ -474,9 +474,17 @@ def cmd_test_send(cfg, args) -> int:
                 why = not_sent_reason(msgs)
                 if why:
                     outcome = f"NOT SENT by Apollo: {why}"; blocked += 1; break
+                if not msgs and _ >= 4:
+                    from .apollo import contact_flags
+                    st = [x for x in contact_flags(api.find_contact(to))["statuses"] if x.get("emailer_campaign_id") == seq]
+                    if st and str(st[0].get("status")) == "finished":
+                        outcome = "skipped: this contact already received this sequence once and Apollo does not resend"
+                        break
                 if any(str(m.get("status") or "").lower() in ("completed", "delivered", "sent") or m.get("completed_at")
                        for m in msgs):
                     outcome = "sent"; sent += 1; break
+            if outcome.startswith("skipped"):
+                print(f"  {touch} {tag} {fmt}: {outcome}"); continue
             if outcome.startswith("still queued"):
                 print(f"  {touch} {tag} {fmt}: {outcome}; stopping so the next test cannot overwrite this one's text")
                 return 2
