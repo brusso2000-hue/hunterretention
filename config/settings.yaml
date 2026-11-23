@@ -3,7 +3,7 @@
 # dry_run : sync + plan + render, log what would be sent. No Apollo writes. (default)
 # sandbox : real Apollo enrollments, but every email goes to sandbox.redirect_to, subject tagged [TEST ...]
 # live    : real customer emails. ALSO requires HP_ALLOW_LIVE_SEND=true AND `approve-production`.
-mode: dry_run
+mode: live
 
 timezone: America/New_York
 
@@ -81,7 +81,7 @@ contacts:
 # Reorder flow: existing customers who are taking longer than usual to reorder.
 reorder:
   enabled: true
-  start_date: "2026-12-01"          # no reorder emails are planned before this date
+  start_date: "2026-12-08"          # no reorder emails are planned before this date
   min_orders: 3                     # need at least this many purchases to know a customer's rhythm
   recent_gaps: 6                    # usual gap = median of this many most recent gaps
   min_usual_gap_days: 21
@@ -114,7 +114,7 @@ eligibility:
 
 dispatch:
   max_attempts: 3
-  max_sends_per_run: 25
+  max_sends_per_run: 5        # launch cap. Raise to 25 after the first clean week (around Dec 8).
   engagement_lookback_days: 150
   recall_window_hours: 72
 
