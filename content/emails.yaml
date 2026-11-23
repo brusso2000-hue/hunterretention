@@ -39,7 +39,7 @@ tracks:
 
         Thanks again for ordering the {{ product_ref }}. I wanted to check in as you get started.
 
-        If anything about setup, surface prep or technique isn't clear, just reply to this email. It's usually faster to sort out here than by trial and error on a real part.
+        If anything about setup, surface prep or technique isn't clear, let us know and we can help out.
 
         Product page: {{ product_url }}
         Brush plating guides: {{ guides_url }}
