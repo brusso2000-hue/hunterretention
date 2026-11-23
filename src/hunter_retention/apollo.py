@@ -175,6 +175,19 @@ def contact_flags(contact: dict | None) -> dict[str, Any]:
     }
 
 
+def not_sent_reason(messages: list[dict]) -> str | None:
+    """Apollo accepted the enrollment but then refused to send (for example its catch-all-domain protection).
+    Returns the reason, or None when the email went out or is still waiting to go."""
+    reason = None
+    for m in messages:
+        status = str(m.get("status") or "").lower()
+        if status in ("completed", "delivered", "sent") or m.get("completed_at"):
+            return None
+        if status in ("failed", "not_sent") or m.get("not_sent_reason"):
+            reason = str(m.get("not_sent_reason") or m.get("failure_reason") or status)
+    return reason
+
+
 def message_flags(messages: list[dict]) -> dict[str, bool]:
     """Tolerant parse of emailer_messages. Field names verified on first sandbox run (see docs/RUNBOOK.md)."""
     out = {"delivered": False, "opened": False, "clicked": False, "replied": False, "bounced": False,

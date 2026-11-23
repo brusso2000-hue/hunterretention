@@ -409,12 +409,22 @@ def test_versions(cfg, which: str) -> list[tuple[str, str, object]]:
 
 def cmd_test_send(cfg, args) -> int:
     """Send sample emails to our own inbox through the real Apollo sequences. Never touches a customer:
-    every recipient is a plus-address of sandbox.redirect_to, and that address must be on one of our own domains."""
+    the only recipient is sandbox.redirect_to, which must be on one of our own domains. Apollo treats
+    plus-addresses as the same person, so the emails go out one at a time through that one contact, and
+    only our two content fields on it are ever changed."""
+    import time
+    from .apollo import not_sent_reason
     from .render import body_to_html
     to = (cfg.s("sandbox.redirect_to") or "").lower()
     own = {d.lower() for d in (cfg.s("contacts.own_domains", []) or [])}
     if "@" not in to or to.split("@")[1] not in own:
         print(f"refusing: sandbox.redirect_to ({to!r}) is not on one of our own domains {sorted(own)}"); return 1
+    versions = test_versions(cfg, args.set)
+    formats = ["text", "html"] if args.format == "both" else [args.format or cfg.s("apollo.body_format", "text")]
+    if args.print_only:
+        for tag, touch, rendered in versions:
+            print(f"  would send {touch} ({'/'.join(formats)}) -> {to}: [TEST {tag}] {rendered.subject}")
+        return 0
     api = _apollo(cfg)
     if api is None:
         print("APOLLO_API_KEY not set"); return 1
@@ -425,36 +435,42 @@ def cmd_test_send(cfg, args) -> int:
     missing = [k for k in ("hp_subject", "hp_body") if k not in ids]
     if missing:
         print(f"Apollo fields missing: {missing}. Run setup-apollo --create first."); return 1
-    local, domain = to.split("@")
-    formats = ["text", "html"] if args.format == "both" else [args.format or cfg.s("apollo.body_format", "text")]
-    sent = 0
-    for tag, touch, rendered in test_versions(cfg, args.set):
+    contact = api.find_contact(to)
+    if contact is None:
+        contact = api.create_contact({"first_name": "Hunter", "last_name": "Test", "email": to,
+                                      "organization_name": "Hunter Products"})
+    cid = contact["id"]
+    sent = blocked = 0
+    for tag, touch, rendered in versions:
         seq = seqs.get(touch)
         if not seq:
             print(f"  skip {tag}: no sequence id for {touch}"); continue
         for fmt in formats:
-            addr = f"{local}+{tag}{'-' + fmt if len(formats) > 1 else ''}@{domain}"
+            subject = f"[TEST {tag} {fmt}] {rendered.subject}"
             body = body_to_html(rendered.body) if fmt == "html" else rendered.body
-            subject = f"[TEST {tag}{' ' + fmt if len(formats) > 1 else ''}] {rendered.subject}"
-            payload = {"first_name": "Test", "last_name": tag, "email": addr, "organization_name": "Hunter Products",
-                       "typed_custom_fields": {ids["hp_subject"]: subject, ids["hp_body"]: body}}
-            if args.print_only:
-                print(f"  would send {touch} -> {addr}: {subject}"); continue
-            contact = api.find_contact(addr)
-            if contact:
-                api.update_contact(contact["id"], payload); cid = contact["id"]
-                try:
-                    api.remove_from_sequence([seq], cid)
-                except Exception:
-                    pass
-            else:
-                cid = api.create_contact(payload)["id"]
+            api.update_contact(cid, {"typed_custom_fields": {ids["hp_subject"]: subject, ids["hp_body"]: body}})
+            try:
+                api.remove_from_sequence([seq], cid)
+            except Exception:
+                pass
             api.add_to_sequence(seq, cid, cfg.s("apollo.send_from_email_account_id"))
-            db.log("test_send", f"Test {tag} ({fmt}) -> {addr}", data={"subject": subject, "sequence": seq})
-            print(f"  queued {touch} -> {addr}: {subject}")
-            sent += 1
-    print(f"\n{sent} test email(s) queued in Apollo for {to} (plus-addresses). Nothing went to a customer.")
-    return 0
+            outcome, msgs = "still queued after 8 minutes", []
+            for _ in range(32):                       # wait for this one to leave before loading the next
+                time.sleep(15)
+                try:
+                    msgs = [m for m in api.message_activity(cid, [seq]) if m.get("emailer_campaign_id") == seq]
+                except Exception as exc:
+                    outcome = f"could not read status: {exc}"; break
+                why = not_sent_reason(msgs)
+                if why:
+                    outcome = f"NOT SENT by Apollo: {why}"; blocked += 1; break
+                if any(str(m.get("status") or "").lower() in ("completed", "delivered", "sent") or m.get("completed_at")
+                       for m in msgs):
+                    outcome = "sent"; sent += 1; break
+            db.log("test_send", f"Test {tag} ({fmt}) -> {to}: {outcome}", data={"subject": subject, "sequence": seq})
+            print(f"  {touch} {tag} {fmt}: {outcome}  [{', '.join(sorted({str(m.get('status')) for m in msgs})) or 'no message yet'}]")
+    print(f"\n{sent} sent, {blocked} blocked by Apollo. Recipient: {to}. Nothing went to a customer.")
+    return 0 if sent and not blocked else 2
 
 
 def cmd_alert_test(cfg, args) -> int:

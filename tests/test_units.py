@@ -207,8 +207,15 @@ def test_test_send_versions_and_own_domain_guard(cfg, capsys):
     core = test_versions(cfg, "core")
     assert len(test_versions(cfg, "smoke")) == 1
     assert {t for _, t, _ in core} == {"e1", "e2", "e3", "e4", "r1", "r2", "r3"}
-    assert len({tag for tag, _, _ in core}) == len(core)          # one plus-address per version
+    assert len({tag for tag, _, _ in core}) == len(core)
     assert len(test_versions(cfg, "all")) > len(core)
     cfg.settings["sandbox"]["redirect_to"] = "someone@customer.com"
     assert cmd_test_send(cfg, SimpleNamespace(set="smoke", format=None, print_only=True)) == 1
     assert "refusing" in capsys.readouterr().out
+
+
+def test_not_sent_reason():
+    from hunter_retention.apollo import not_sent_reason
+    assert not_sent_reason([{"status": "failed", "not_sent_reason": "catchall_domain_blocked"}]) == "catchall_domain_blocked"
+    assert not_sent_reason([{"status": "scheduled"}]) is None
+    assert not_sent_reason([{"status": "failed", "not_sent_reason": "x"}, {"status": "delivered"}]) is None

@@ -19,7 +19,7 @@ from typing import Callable
 
 from sqlalchemy import insert, select, update
 
-from .apollo import ApolloAPI, SkippedByApollo, contact_flags, message_flags
+from .apollo import not_sent_reason, ApolloAPI, SkippedByApollo, contact_flags, message_flags
 from .alerts import Alerter
 from .config import Config
 from .db import DB, apollo_fields, engagement, suppressions, touches, tracks, utcnow
@@ -234,7 +234,8 @@ class Dispatcher:
         payload = {"first_name": "Sandbox", "last_name": "Test", "email": to, "organization_name": "Hunter Products",
                    "typed_custom_fields": fields}
         if contact:
-            self.apollo.update_contact(contact["id"], payload)
+            # An existing record is a real person's contact: change only our two content fields.
+            self.apollo.update_contact(contact["id"], {"typed_custom_fields": fields})
             cid = contact["id"]
         else:
             cid = self.apollo.create_contact(payload)["id"]
@@ -380,6 +381,7 @@ class Dispatcher:
         for r in rows:
             if r["apollo_contact_id"]:
                 by_contact.setdefault(r["apollo_contact_id"], []).append(dict(r))
+        not_sent: list[str] = []
         try:
             for cid, trs in by_contact.items():
                 msgs = self.apollo.message_activity(cid, list(key_by_seq))
@@ -389,6 +391,12 @@ class Dispatcher:
                 for t in trs:
                     flags = message_flags(per_seq.get(t["apollo_sequence_id"], []))
                     self._store_engagement(t["id"], flags, per_seq.get(t["apollo_sequence_id"], []))
+                    blocked = not_sent_reason(per_seq.get(t["apollo_sequence_id"], []))
+                    if blocked:
+                        # Apollo took the enrollment and then refused to send. Record it honestly and tell the owner.
+                        self._set_touch(t, "failed", f"apollo_not_sent:{blocked}"[:250])
+                        self.stats["failed"] += 1
+                        not_sent.append(f"{t['email']} ({t['touch_key']}): {blocked}")
                     if flags["unsubscribed"] or flags["bounced"]:
                         self._add_suppression(t["email"], "apollo_unsubscribe" if flags["unsubscribed"] else "bounce",
                                               f"touch {t['id']}")
@@ -401,6 +409,8 @@ class Dispatcher:
         except Exception as exc:
             self.engagement_ok = False
             self.alerter.alert("Apollo engagement sync failed; sends deferred this run", str(exc))
+        if not_sent:
+            self.alerter.alert(f"Apollo did not send {len(not_sent)} email(s)", "\n".join(not_sent[:20]))
 
     def recover_enrolling(self) -> None:
         """Touches left 'enrolling' by a crash: check Apollo, mark sent or release for retry."""
