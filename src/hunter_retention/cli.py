@@ -64,6 +64,8 @@ def cmd_run(cfg, args) -> int:
         # The work above is finished and saved. Ending as "failed" makes GitHub email the repo owner,
         # so a problem is never only visible in a log nobody reads.
         print("\nALERTS RAISED THIS RUN:\n" + "\n".join(alerter.sent))
+        (ROOT / "reports").mkdir(exist_ok=True)
+        (ROOT / "reports" / "alerts.txt").write_text("\n\n".join(alerter.sent))
         return 3
     return 0
 
@@ -445,9 +447,13 @@ def cmd_test_send(cfg, args) -> int:
     cid = contact["id"]
     sent = blocked = 0
     for tag, touch, rendered in versions:
-        seq = seqs.get(touch)
-        if not seq:
-            print(f"  skip {tag}: no sequence id for {touch}"); continue
+        from .apollo import contact_flags
+        every = list(dict.fromkeys([v for v in seqs.values() if v] + list(cfg.s("apollo.sequence_pool", []) or [])))
+        used = {x.get("emailer_campaign_id") for x in contact_flags(api.find_contact(to))["statuses"]}
+        free = [x for x in dict.fromkeys([seqs.get(touch)] + every) if x and x not in used]
+        if not free:
+            print(f"  skip {tag}: the test contact has been through every sequence"); continue
+        seq = free[0]
         for fmt in formats:
             subject = f"[TEST {tag} {fmt}] {rendered.subject}"
             body = body_to_html(rendered.body) if fmt == "html" else rendered.body

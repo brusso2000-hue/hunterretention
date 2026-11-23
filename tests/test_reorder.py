@@ -81,7 +81,19 @@ def test_it_is_ongoing_the_same_customer_comes_back_in_after_the_next_long_gap(t
     h.run_range(D(2025, 11, 21), D(2026, 3, 15))                     # ...then go quiet again
     eps = episodes(h, key)
     assert len(eps) == 2 and eps[0]["status"] == "converted" and eps[1]["episode_key"] != eps[0]["episode_key"]
-    assert h.apollo.sent_to("dana@acme.com").count("seq_r1") == 2
+    sent = h.apollo.sent_to("dana@acme.com")
+    # Apollo sends a contact each sequence once, so the second time round must use sequences not used before.
+    assert len(sent) == 4 and len(set(sent)) == 4 and sent[0] == "seq_r1"
+
+
+def test_pool_used_up_is_reported_not_silently_dropped(tmp_path):
+    h = Harness(tmp_path, settings=ON).strip_verify()
+    key = repeat_customer(h)
+    h.cfg.settings["apollo"]["sequences"] = {k: "seq_only" for k in h.cfg.settings["apollo"]["sequences"]}
+    h.cfg.settings["apollo"]["sequence_pool"] = []
+    h.run_range(D(2025, 11, 18), D(2026, 1, 15))
+    assert h.apollo.sent_to("dana@acme.com") == ["seq_only"]          # first email goes out
+    assert any("pool" in a.lower() for a in h.alerter.sent)           # the rest are flagged, not faked
 
 
 def test_fewer_than_three_orders_has_no_rhythm(tmp_path):

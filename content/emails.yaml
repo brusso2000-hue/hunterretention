@@ -10,7 +10,7 @@
 #
 # Variables: greeting, first_name, company, product, product_sku, product_url, products, consumables,
 #   application_labels, family_label, system_url, store_url, quote_url, tech_url, resources_url,
-#   guides_url, sender_name, sender_title, sender_company, sender_phone, blocks (rendered tip blocks),
+#   guides_url, sender_name, sender_title, sender_company, sender_address, sender_phone, blocks (rendered tip blocks),
 #   po_number, contact_role, family
 #
 # CONTACT TYPES
@@ -47,6 +47,7 @@ tracks:
         Best,
         {{ sender_name }}
         {{ sender_company }}
+        {{ sender_address }}
         {{ sender_phone }}
 
     e2:
@@ -71,6 +72,7 @@ tracks:
         Best,
         {{ sender_name }}
         {{ sender_company }}
+        {{ sender_address }}
 
     e3:
       subject: "Restocking your plating pens"
@@ -95,6 +97,7 @@ tracks:
         Best,
         {{ sender_name }}
         {{ sender_company }}
+        {{ sender_address }}
         {{ sender_phone }}
 
     e4:
@@ -111,6 +114,7 @@ tracks:
         Best,
         {{ sender_name }}
         {{ sender_company }}
+        {{ sender_address }}
 
   # ===================================================================== B: Carbitron 300
   B:
@@ -129,6 +133,7 @@ tracks:
         Best,
         {{ sender_name }}
         {{ sender_company }}
+        {{ sender_address }}
         {{ sender_phone }}
 
     e2:
@@ -145,6 +150,7 @@ tracks:
         Best,
         {{ sender_name }}
         {{ sender_company }}
+        {{ sender_address }}
 
     e3:
       subject: "Carbitron 300 electrodes and parts"
@@ -172,6 +178,7 @@ tracks:
         Best,
         {{ sender_name }}
         {{ sender_company }}
+        {{ sender_address }}
         {{ sender_phone }}
 
     e4:
@@ -186,6 +193,7 @@ tracks:
         Best,
         {{ sender_name }}
         {{ sender_company }}
+        {{ sender_address }}
 
   # ===================================================================== C: Micro-Jet 200
   C:
@@ -203,6 +211,7 @@ tracks:
         Best,
         {{ sender_name }}
         {{ sender_company }}
+        {{ sender_address }}
         {{ sender_phone }}
 
     e3:
@@ -229,6 +238,7 @@ tracks:
         Best,
         {{ sender_name }}
         {{ sender_company }}
+        {{ sender_address }}
         {{ sender_phone }}
 
     e4:
@@ -243,6 +253,7 @@ tracks:
         Best,
         {{ sender_name }}
         {{ sender_company }}
+        {{ sender_address }}
 
   # ===================================================================== D: Consumables / parts only
   D:
@@ -258,6 +269,7 @@ tracks:
         Best,
         {{ sender_name }}
         {{ sender_company }}
+        {{ sender_address }}
         {{ sender_phone }}
 
     e3:
@@ -282,6 +294,7 @@ tracks:
         Best,
         {{ sender_name }}
         {{ sender_company }}
+        {{ sender_address }}
         {{ sender_phone }}
 
     e4:
@@ -296,6 +309,7 @@ tracks:
         Best,
         {{ sender_name }}
         {{ sender_company }}
+        {{ sender_address }}
 
   # ===================================================================== R: reorder flow (existing customers)
   # Sent when a repeat customer goes longer than usual without ordering. Stops the moment they order.
@@ -322,6 +336,7 @@ tracks:
         Best,
         {{ sender_name }}
         {{ sender_company }}
+        {{ sender_address }}
         {{ sender_phone }}
       variants:
         buyer:
@@ -342,6 +357,7 @@ tracks:
             Best,
             {{ sender_name }}
             {{ sender_company }}
+            {{ sender_address }}
             {{ sender_phone }}
 
     r2:
@@ -363,6 +379,7 @@ tracks:
         Best,
         {{ sender_name }}
         {{ sender_company }}
+        {{ sender_address }}
         {{ sender_phone }}
 
     r3:
@@ -379,6 +396,7 @@ tracks:
         Best,
         {{ sender_name }}
         {{ sender_company }}
+        {{ sender_address }}
         {{ sender_phone }}
 
 # ============================================================================ versions by contact type
@@ -406,6 +424,7 @@ role_variants:
         Best,
         {{ sender_name }}
         {{ sender_company }}
+        {{ sender_address }}
         {{ sender_phone }}
 
     e2:
@@ -435,6 +454,7 @@ role_variants:
         Best,
         {{ sender_name }}
         {{ sender_company }}
+        {{ sender_address }}
         {{ sender_phone }}
 
     e4:
@@ -456,6 +476,7 @@ role_variants:
         Best,
         {{ sender_name }}
         {{ sender_company }}
+        {{ sender_address }}
         {{ sender_phone }}
 
   # --------------------------------------------------------------- owner_operator (one person orders and uses it)
@@ -482,6 +503,7 @@ role_variants:
         Best,
         {{ sender_name }}
         {{ sender_company }}
+        {{ sender_address }}
         {{ sender_phone }}
 
 # Tip blocks inserted into e2 by application (A) or product line (B, C).

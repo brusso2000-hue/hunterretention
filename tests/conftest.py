@@ -170,7 +170,7 @@ class FakeApollo:
 class Harness:
     def __init__(self, tmp_path, mode="live", settings=None, lifecycle=None, approve=True, allow=True):
         base = {"mode": mode, "program_start_date": "2026-01-01", "history_start_date": "2015-01-01",
-                "apollo": {"sequences": dict(SEQS)}, "analytics": {"holdout_pct": 0}}
+                "apollo": {"sequences": dict(SEQS), "sequence_pool": []}, "analytics": {"holdout_pct": 0}}
         ov = {"settings": base, "lifecycle": lifecycle or {}}
         if settings:
             from hunter_retention.config import _deep_merge

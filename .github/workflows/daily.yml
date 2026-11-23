@@ -20,6 +20,11 @@ on:
         required: false
         type: string
 
+# The job only reads the code; it may open an issue to tell the owner about a failure.
+permissions:
+  contents: read
+  issues: write
+
 # Never let two runs overlap (idempotency relies on one writer at a time).
 concurrency:
   group: hunter-retention
@@ -73,6 +78,19 @@ jobs:
           hunter-retention run $ARGS
           if [ "$PREVIEW_DAYS" = "mailcheck" ]; then hunter-retention contacts mailcheck || true
           elif [ -n "$PREVIEW_DAYS" ]; then hunter-retention contacts preview --days "$PREVIEW_DAYS" --max-accounts 110; fi
+      - name: Tell the owner when something went wrong
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "@brusso2000-hue the retention job failed or raised an alert."
+            echo
+            if [ -f reports/alerts.txt ]; then cat reports/alerts.txt; else echo "No alert text was saved. The job stopped before finishing; see the log."; fi
+            echo
+            echo "Log: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          } > /tmp/issue.md
+          gh issue create --repo "$GITHUB_REPOSITORY" --title "Retention job needs attention ($(date -u +%F))" --body-file /tmp/issue.md
       - name: Upload report
         if: always()
         uses: actions/upload-artifact@v4

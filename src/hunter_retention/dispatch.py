@@ -28,6 +28,10 @@ from .world import World, revenue_12m_by_account
 
 log = logging.getLogger(__name__)
 
+
+class NoUnusedSequence(Exception):
+    """This person has already received every sequence in the pool; Apollo would silently send nothing."""
+
 HP_FIELDS = {
     "quickbooks_customer_id": "string", "first_purchase_date": "date", "first_purchase_product": "string",
     "first_purchase_sku": "string", "product_category": "string", "plating_application": "string",
@@ -55,6 +59,7 @@ class Dispatcher:
         self.engagement_ok = True
         self._fields: dict[str, str] | None = None
         self._content_alerted = False
+        self._pool_warned: set[str] = set()
 
     # ================================================================ gate
     def assert_live_allowed(self) -> None:
@@ -214,11 +219,36 @@ class Dispatcher:
         return self._send_live(tr, t, rendered, email)
 
     # ================================================================ sending
-    def _sequence_id(self, touch_key: str) -> str:
-        sid = (self.cfg.s("apollo.sequences", {}) or {}).get(touch_key)
-        if not sid:
+    def _all_sequences(self) -> list[str]:
+        """Every Apollo sequence we may send through. They are interchangeable: each one sends the
+        contact's hp_subject / hp_body once. The per-touch ids come first so reports stay readable."""
+        named = [v for v in (self.cfg.s("apollo.sequences", {}) or {}).values() if v]
+        pool = [v for v in (self.cfg.s("apollo.sequence_pool", []) or []) if v]
+        return list(dict.fromkeys(named + pool))
+
+    def _sequence_id(self, touch_key: str, contact: dict | None = None, email: str | None = None) -> str:
+        """Apollo sends a contact each sequence only once, ever. So for every email we pick a sequence this
+        person has not been through yet: the touch's own sequence first, then any other one. That is what
+        lets a customer go through the reorder emails again each time they fall behind."""
+        preferred = (self.cfg.s("apollo.sequences", {}) or {}).get(touch_key)
+        if not preferred:
             raise LiveSendBlocked(f"No Apollo sequence id configured for {touch_key}")
-        return sid
+        used = {st.get("emailer_campaign_id") for st in contact_flags(contact)["statuses"]} if contact else set()
+        if email:
+            with self.db.engine.begin() as c:
+                used |= {r[0] for r in c.execute(select(touches.c.apollo_sequence_id).where(
+                    (touches.c.sent_to_email == email) & touches.c.apollo_sequence_id.isnot(None)
+                    & touches.c.status.in_(("sent", "enrolling", "recalled", "failed"))))}
+        free = [x for x in dict.fromkeys([preferred] + self._all_sequences()) if x not in used]
+        if not free:
+            raise NoUnusedSequence(f"{email} has been through all {len(self._all_sequences())} sequences")
+        low = int(self.cfg.s("apollo.pool_low_warning", 3))
+        if len(free) - 1 < low and email not in self._pool_warned:
+            self._pool_warned.add(email)
+            self.alerter.alert("Sequence pool running low for a customer",
+                               f"{email} has {len(free) - 1} unused sequence(s) left after this email. "
+                               "Add more one-step sequences to apollo.sequence_pool in config/settings.yaml.")
+        return free[0]
 
     def _send_sandbox(self, tr: dict, t: dict, rendered) -> bool:
         limit = int(self.cfg.s("sandbox.max_per_run", 5))
@@ -249,7 +279,6 @@ class Dispatcher:
 
     def _send_live(self, tr: dict, t: dict, rendered, email: str) -> bool:
         assert self.apollo is not None
-        seq = self._sequence_id(t["touch_key"])
         contact = self.apollo.find_contact(email)
         flags = contact_flags(contact)
         if flags["unsubscribed"] or flags["bounced"]:
@@ -258,10 +287,18 @@ class Dispatcher:
             self._stop_track(tr, f"suppressed:{src}")
             self.stats["suppressed"] += 1
             return False
-        hp_seqs = set((self.cfg.s("apollo.sequences", {}) or {}).values())
+        hp_seqs = set(self._all_sequences())
         other_active = [s for s in flags["active_sequences"] if s not in hp_seqs]
         if other_active and self.cfg.s("apollo.skip_if_active_in_other_sequences", True):
             self._defer(t, "active_in_other_apollo_sequence")
+            return False
+        try:
+            seq = self._sequence_id(t["touch_key"], contact, email)
+        except NoUnusedSequence as exc:
+            self._set_touch(t, "failed", f"no_unused_sequence:{exc}"[:250])
+            self.stats["failed"] += 1
+            self.alerter.alert("Email not sent: sequence pool used up for this customer",
+                               f"{tr['company']} {t['touch_key']}: {exc}. Add sequences to apollo.sequence_pool.")
             return False
 
         # 1) claim the touch before touching Apollo
@@ -285,7 +322,8 @@ class Dispatcher:
                 cid = contact["id"]
             else:
                 cid = self.apollo.create_contact(payload)["id"]
-            self._remove_if_present(contact, seq, cid)
+            # No removal here: taking a contact out of a sequence does not let Apollo send it again,
+            # it only erases the record that tells us the sequence is used up for this person.
             self.apollo.add_to_sequence(seq, cid, self.cfg.s("apollo.send_from_email_account_id"))
         except SkippedByApollo as exc:
             reason = exc.reason.lower()
@@ -371,8 +409,7 @@ class Dispatcher:
     # ================================================================ engagement & recovery
     def sync_engagement(self) -> None:
         lookback = self.today - timedelta(days=int(self.cfg.s("dispatch.engagement_lookback_days", 150)))
-        seq_by_key = self.cfg.s("apollo.sequences", {}) or {}
-        key_by_seq = {v: k for k, v in seq_by_key.items() if v}
+        key_by_seq = {v: None for v in self._all_sequences()}
         with self.db.engine.begin() as c:
             rows = c.execute(select(touches, tracks.c.email).join(tracks, tracks.c.id == touches.c.track_id).where(
                 (touches.c.status == "sent") & (touches.c.sent_on >= lookback)

@@ -32,6 +32,19 @@ apollo:
     r1: "6b00b1b2ebe6940018773516"       # reorder flow, same one-step setup
     r2: "6b00b1b272cefe0013206417"
     r3: "6b00b1b3f4d064000cc4ba67"
+  # Spare one-step sequences, identical to the ones above. Apollo sends a contact each sequence only once,
+  # so every email goes through a sequence that person has not used yet. 15 in total = 15 emails per person.
+  # The daily job warns when anyone gets within pool_low_warning of the end; add more ids here when it does.
+  sequence_pool:
+    - "6b0485cb23868c000c051078"
+    - "6b0485cbc9a75f001457e4d0"
+    - "6b0485cc475f910018ab9c18"
+    - "6b0485cd8e248e0014dcf58d"
+    - "6b0485ce8e248e001004296b"
+    - "6b0485cedad82f000cc2e677"
+    - "6b0485cf23868c000c05109f"
+    - "6b0485cf8e248e000c15da8e"
+  pool_low_warning: 3
   contact_label: "HP Lifecycle"
   # text: hp_body is a multi-line text field inserted as-is. html: paragraphs converted to <p>/<br>.
   # Confirm which renders correctly with your first sandbox send (docs/SETUP.md step 6).
@@ -43,6 +56,7 @@ sender:
   name: "Brandon"
   title: "Vice President"
   company: "Hunter Products, Inc."
+  address: "36 Madison Avenue, Flemington, NJ 08822"
   phone: "(908) 526-8440"
 
 identity:
