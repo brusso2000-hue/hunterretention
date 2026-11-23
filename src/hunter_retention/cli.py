@@ -391,6 +391,9 @@ def test_versions(cfg, which: str) -> list[tuple[str, str, object]]:
                                                                    ("D", "micro_jet"), ("D", "micro_metallizer"), ("R", None)]
         combos = [(seg, app, t["key"], role) for seg, app in segs for t in (cfg.lc(f"tracks.{seg}.touches", []) or [])
                   for role in ("user", "buyer", "owner_operator")]
+    elif which == "seqs":      # one email through each of the other six sequences (a contact gets each sequence once)
+        combos = [("B", None, "e2", "user"), ("A", "gold+nickel", "e3", "user"), ("A", "gold", "e4", "buyer"),
+                  ("R", None, "r1", "buyer"), ("R", None, "r2", "user"), ("R", None, "r3", "user")]
     else:
         combos = TEST_CORE[:1] if which == "smoke" else TEST_CORE
     out, seen = [], set()
@@ -453,12 +456,19 @@ def cmd_test_send(cfg, args) -> int:
                 api.remove_from_sequence([seq], cid)
             except Exception:
                 pass
+            try:
+                before = {m.get("id") for m in api.message_activity(cid, [seq])}
+            except Exception:
+                before = set()
             api.add_to_sequence(seq, cid, cfg.s("apollo.send_from_email_account_id"))
-            outcome, msgs = "still queued after 8 minutes", []
-            for _ in range(32):                       # wait for this one to leave before loading the next
+            outcome, msgs = "still queued after 12 minutes", []
+            for _ in range(48):                       # wait for this one to leave before loading the next
                 time.sleep(15)
                 try:
-                    msgs = [m for m in api.message_activity(cid, [seq]) if m.get("emailer_campaign_id") == seq]
+                    # Only a message created by THIS enrollment counts. Apollo sends a contact each sequence once:
+                    # a second enrollment finishes at once without sending and leaves only the old message.
+                    msgs = [m for m in api.message_activity(cid, [seq])
+                            if m.get("emailer_campaign_id") == seq and m.get("id") not in before]
                 except Exception as exc:
                     outcome = f"could not read status: {exc}"; break
                 why = not_sent_reason(msgs)
@@ -467,6 +477,9 @@ def cmd_test_send(cfg, args) -> int:
                 if any(str(m.get("status") or "").lower() in ("completed", "delivered", "sent") or m.get("completed_at")
                        for m in msgs):
                     outcome = "sent"; sent += 1; break
+            if outcome.startswith("still queued"):
+                print(f"  {touch} {tag} {fmt}: {outcome}; stopping so the next test cannot overwrite this one's text")
+                return 2
             db.log("test_send", f"Test {tag} ({fmt}) -> {to}: {outcome}", data={"subject": subject, "sequence": seq})
             print(f"  {touch} {tag} {fmt}: {outcome}  [{', '.join(sorted({str(m.get('status')) for m in msgs})) or 'no message yet'}]")
     print(f"\n{sent} sent, {blocked} blocked by Apollo. Recipient: {to}. Nothing went to a customer.")
@@ -534,7 +547,7 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--role", choices=["user", "buyer", "owner_operator", "unknown"])
     s.set_defaults(fn=cmd_contacts)
     s = sub.add_parser("test-send", help="send sample emails to our own inbox through the Apollo sequences")
-    s.add_argument("--set", choices=["smoke", "core", "all"], default="smoke")
+    s.add_argument("--set", choices=["smoke", "seqs", "core", "all"], default="smoke")
     s.add_argument("--format", choices=["text", "html", "both"]); s.add_argument("--print-only", action="store_true")
     s.set_defaults(fn=cmd_test_send)
     s = sub.add_parser("alert-test", help="post a test message to the alert webhook"); s.set_defaults(fn=cmd_alert_test)
