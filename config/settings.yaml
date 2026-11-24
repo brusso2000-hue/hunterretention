@@ -58,6 +58,7 @@ sender:
   company: "Hunter Products, Inc."
   address: "36 Madison Avenue, Flemington, NJ 08822"
   phone: "(908) 526-8440"
+  website: "https://www.hunterproducts.com"
 
 identity:
   # A "new" QBO customer whose company email domain already bought from us:

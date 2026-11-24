@@ -10,7 +10,7 @@
 #
 # Variables: greeting, first_name, company, product, product_sku, product_url, products, consumables,
 #   application_labels, family_label, system_url, store_url, quote_url, tech_url, resources_url,
-#   guides_url, sender_name, sender_title, sender_company, sender_address, sender_phone, blocks (rendered tip blocks),
+#   guides_url, sender_name, sender_title, sender_company, sender_address, sender_phone, sender_website, blocks (rendered tip blocks),
 #   po_number, contact_role, family
 #
 # CONTACT TYPES
@@ -49,6 +49,7 @@ tracks:
         {{ sender_company }}
         {{ sender_address }}
         {{ sender_phone }}
+        {{ sender_website }}
 
     e2:
       subject: "One month in with your {{ product_ref }}"
@@ -73,6 +74,7 @@ tracks:
         {{ sender_name }}
         {{ sender_company }}
         {{ sender_address }}
+        {{ sender_website }}
 
     e3:
       subject: "Restocking your plating pens"
@@ -99,6 +101,7 @@ tracks:
         {{ sender_company }}
         {{ sender_address }}
         {{ sender_phone }}
+        {{ sender_website }}
 
     e4:
       subject: "Checking in"
@@ -115,6 +118,7 @@ tracks:
         {{ sender_name }}
         {{ sender_company }}
         {{ sender_address }}
+        {{ sender_website }}
 
   # ===================================================================== B: Carbitron 300
   B:
@@ -135,6 +139,7 @@ tracks:
         {{ sender_company }}
         {{ sender_address }}
         {{ sender_phone }}
+        {{ sender_website }}
 
     e2:
       subject: "How is the Carbitron 300 working out?"
@@ -151,6 +156,7 @@ tracks:
         {{ sender_name }}
         {{ sender_company }}
         {{ sender_address }}
+        {{ sender_website }}
 
     e3:
       subject: "Carbitron 300 electrodes and parts"
@@ -180,6 +186,7 @@ tracks:
         {{ sender_company }}
         {{ sender_address }}
         {{ sender_phone }}
+        {{ sender_website }}
 
     e4:
       subject: "Checking in"
@@ -194,6 +201,7 @@ tracks:
         {{ sender_name }}
         {{ sender_company }}
         {{ sender_address }}
+        {{ sender_website }}
 
   # ===================================================================== C: Micro-Jet 200
   C:
@@ -213,6 +221,7 @@ tracks:
         {{ sender_company }}
         {{ sender_address }}
         {{ sender_phone }}
+        {{ sender_website }}
 
     e3:
       subject: "Micro-Jet 200 nozzles and media"
@@ -240,6 +249,7 @@ tracks:
         {{ sender_company }}
         {{ sender_address }}
         {{ sender_phone }}
+        {{ sender_website }}
 
     e4:
       subject: "Checking in"
@@ -254,6 +264,7 @@ tracks:
         {{ sender_name }}
         {{ sender_company }}
         {{ sender_address }}
+        {{ sender_website }}
 
   # ===================================================================== D: Consumables / parts only
   D:
@@ -271,6 +282,7 @@ tracks:
         {{ sender_company }}
         {{ sender_address }}
         {{ sender_phone }}
+        {{ sender_website }}
 
     e3:
       subject: "Restocking {{ family_label }} supplies"
@@ -296,6 +308,7 @@ tracks:
         {{ sender_company }}
         {{ sender_address }}
         {{ sender_phone }}
+        {{ sender_website }}
 
     e4:
       subject: "Checking in"
@@ -310,6 +323,7 @@ tracks:
         {{ sender_name }}
         {{ sender_company }}
         {{ sender_address }}
+        {{ sender_website }}
 
   # ===================================================================== R: reorder flow (existing customers)
   # Sent when a repeat customer goes longer than usual without ordering. Stops the moment they order.
@@ -338,6 +352,7 @@ tracks:
         {{ sender_company }}
         {{ sender_address }}
         {{ sender_phone }}
+        {{ sender_website }}
       variants:
         buyer:
           subject: "Reorder check for {{ company or 'your team' }}{% if po_number %} (last PO {{ po_number }}){% endif %}"
@@ -359,6 +374,7 @@ tracks:
             {{ sender_company }}
             {{ sender_address }}
             {{ sender_phone }}
+            {{ sender_website }}
 
     r2:
       subject: "Following up on {{ family_label }} supplies"
@@ -381,6 +397,7 @@ tracks:
         {{ sender_company }}
         {{ sender_address }}
         {{ sender_phone }}
+        {{ sender_website }}
 
     r3:
       subject: "Anything change on your end?"
@@ -398,6 +415,7 @@ tracks:
         {{ sender_company }}
         {{ sender_address }}
         {{ sender_phone }}
+        {{ sender_website }}
 
 # ============================================================================ versions by contact type
 role_variants:
@@ -426,6 +444,7 @@ role_variants:
         {{ sender_company }}
         {{ sender_address }}
         {{ sender_phone }}
+        {{ sender_website }}
 
     e2:
       skip: true        # technique tips go to users, not purchasing
@@ -456,6 +475,7 @@ role_variants:
         {{ sender_company }}
         {{ sender_address }}
         {{ sender_phone }}
+        {{ sender_website }}
 
     e4:
       subject: "{% if family == 'micro_metallizer' %}Blanket PO or volume pricing for {{ company or 'your team' }}{% else %}Parts and supplies for your {{ family_label }}{% endif %}"
@@ -478,6 +498,7 @@ role_variants:
         {{ sender_company }}
         {{ sender_address }}
         {{ sender_phone }}
+        {{ sender_website }}
 
   # --------------------------------------------------------------- owner_operator (one person orders and uses it)
   # Gets the standard emails, except the reorder email leads with the web store instead of a PO.
@@ -505,6 +526,7 @@ role_variants:
         {{ sender_company }}
         {{ sender_address }}
         {{ sender_phone }}
+        {{ sender_website }}
 
 # Tip blocks inserted into e2 by application (A) or product line (B, C).
 # A customer buying two metals gets both blocks (max_application_blocks).
