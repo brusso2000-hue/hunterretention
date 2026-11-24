@@ -96,7 +96,7 @@ contacts:
 # Reorder flow: existing customers who are taking longer than usual to reorder.
 reorder:
   enabled: true
-  start_date: "2026-12-08"          # no reorder emails are planned before this date
+  start_date: "2026-11-24"          # no reorder emails are planned before this date
   min_orders: 3                     # need at least this many purchases to know a customer's rhythm
   recent_gaps: 6                    # usual gap = median of this many most recent gaps
   min_usual_gap_days: 21
