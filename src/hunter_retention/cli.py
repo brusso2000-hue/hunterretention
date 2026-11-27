@@ -456,6 +456,21 @@ TEST_CORE = [("A", "gold", "e1", "user"), ("A", "gold", "e1", "buyer"), ("A", "g
 def test_versions(cfg, which: str) -> list[tuple[str, str, object]]:
     """(tag, touch_key, rendered) for the test send. smoke = one email, core = each version once, all = every distinct email."""
     r = Renderer(cfg)
+    if which == "registration":
+        # The two pen registration emails, filled with real lots from config/lots.yaml.
+        from .registration import LotRegistry, _long
+        reg_lots = [lot for lot in LotRegistry(cfg).lots.values() if not lot.problems][:2]
+        if not reg_lots:
+            return []
+        names = {"PL-1002": "Absorbent/Degreaser Pen", "PL-1003": "24K Gold Plating Pen", "PL-1004": "18K Gold Plating Pen"}
+        lots = [{"code": lot.code, "products": [names.get(lot.skus[0], lot.skus[0]) if lot.skus else "Plating Pen"],
+                 "use_by": str(lot.use_by), "use_by_long": _long(lot.use_by), "coc_url": lot.coc_url} for lot in reg_lots]
+        tr = sample_track(cfg, "A", "gold")
+        tr.update(segment="P", subsegment="pen", contact_role="user")
+        tr.setdefault("order_summary", {})["registration"] = {
+            "lots": lots, "many": len(lots) > 1, "first_use_by": lots[0]["use_by"],
+            "first_use_by_long": lots[0]["use_by_long"], "order_label": "PO 613707", "lot_basis": "test"}
+        return [(f"p-{k}", k, r.render(tr, k)) for k in ("c1", "x1")]
     if which == "all":
         segs = [("A", a) for a in ("gold", "gold+nickel", None)] + [("B", None), ("C", None), ("D", "carbitron"),
                                                                    ("D", "micro_jet"), ("D", "micro_metallizer"), ("R", None)]
@@ -635,7 +650,7 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--role", choices=["user", "buyer", "owner_operator", "unknown"])
     s.set_defaults(fn=cmd_contacts)
     s = sub.add_parser("test-send", help="send sample emails to our own inbox through the Apollo sequences")
-    s.add_argument("--set", choices=["smoke", "seqs", "core", "all"], default="smoke")
+    s.add_argument("--set", choices=["smoke", "seqs", "core", "all", "registration"], default="smoke")
     s.add_argument("--format", choices=["text", "html", "both"]); s.add_argument("--print-only", action="store_true")
     s.set_defaults(fn=cmd_test_send)
     s = sub.add_parser("alert-test", help="post a test message to the alert webhook"); s.set_defaults(fn=cmd_alert_test)
