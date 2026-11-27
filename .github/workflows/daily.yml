@@ -69,7 +69,7 @@ jobs:
           # "simulate:N" is a self-contained what-if run: it never writes to the database, so skip the real run.
           # One-off setup helpers. Neither runs the daily job.
           #   setup-apollo      create/find the Apollo custom fields and store their ids
-          #   test-send:SET[:FORMAT]  sample emails to our own inbox only (SET = smoke | core | all, FORMAT = text | html | both)
+          #   test-send:SET[:FORMAT]  sample emails to our own inbox only (SET = smoke | core | all | registration, FORMAT = text | html | both)
           case "$PREVIEW_DAYS" in
             setup-apollo) hunter-retention setup-apollo --create; exit 0;;
             alert-test) hunter-retention alert-test; exit 0;;
