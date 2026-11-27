@@ -287,3 +287,91 @@ def test_order_is_named_by_po_number_or_invoice_number(tmp_path):
     rid2 = register(h2)
     h2.run(TODAY)
     assert reg_track(h2, rid2)[1]["c1"]["rendered_subject"] == "Your Certificate of Conformance (invoice 10432)"
+
+
+def test_shipped_lot_registry_is_well_formed(tmp_path):
+    """The real config/lots.yaml: every lot has a use-by date and covers exactly one known pen."""
+    from hunter_retention.classify import Classifier
+    from hunter_retention.config import load_config
+    from hunter_retention.registration import LotRegistry
+    cfg = load_config()
+    lots = LotRegistry(cfg).lots
+    cls = Classifier(cfg.products, cfg.lifecycle)
+    seen = set()
+    for lot in lots.values():
+        assert lot.use_by, lot.code
+        assert lot.ships_from and (lot.ships_until is None or lot.ships_until >= lot.ships_from), lot.code
+        assert len(lot.skus) == 1 and lot.skus[0] not in seen, lot.code
+        seen.add(lot.skus[0])
+        c = cls.classify_item(None, lot.skus[0])
+        assert c.family == "micro_metallizer" and c.role in ("consumable", "prep"), lot.code
+
+
+def test_degreaser_pens_can_be_registered(tmp_path):
+    lot = {"code": "L2025091502", "skus": ["PL-1002"], "use_by": "2026-09-15", "coc_url": "https://x/L2025091502.pdf"}
+    h = make(tmp_path, lots=[lot])
+    tid = customer(h, lot=None, lines=[("PL-1002", 6, 65.0)])
+    h.qbo.txns["Invoice"][tid]["Line"][0]["Description"] = "Degreaser pen Lot L2025091502"
+    rid = register(h)
+    h.run(TODAY)
+    assert reg(h, rid)["lot_codes"] == ["L2025091502"] and h.apollo.sent_to("dana.lee@acme.com") == ["seq_p1"]
+
+
+STOCK = {**LOT, "ships_from": "2025-09-20"}       # the only gold-pen lot on the shelf from Sept 20
+
+
+def test_only_lot_in_stock_is_used_without_anything_typed_on_the_invoice(tmp_path):
+    h = make(tmp_path, lots=[STOCK])
+    customer(h, lot=None, when=D(2025, 10, 1))
+    rid = register(h)
+    h.run(TODAY)
+    r = reg(h, rid)
+    assert r["status"] == "matched" and r["lot_codes"] == ["HP-2509-G24"]
+    assert h.apollo.sent_to("dana.lee@acme.com") == ["seq_p1"]
+    assert reg_track(h, rid)[0]["order_summary"]["registration"]["lot_basis"] == "only lot in stock on the ship date"
+
+
+def test_order_shipped_before_the_lot_was_in_stock_is_held(tmp_path):
+    h = make(tmp_path, lots=[STOCK])
+    customer(h, lot=None, when=D(2025, 9, 10))
+    rid = register(h)
+    h.run(TODAY)
+    assert reg(h, rid)["status_reason"] == "registration_no_lot_recorded" and h.apollo.enrollments == []
+
+
+def test_two_lots_in_stock_on_the_ship_date_is_held_not_guessed(tmp_path):
+    newer = {**LOT, "code": "HP-2510-G24", "ships_from": "2025-09-28", "coc_url": "https://x/b.pdf"}
+    h = make(tmp_path, lots=[STOCK, newer])
+    customer(h, lot=None, when=D(2025, 10, 1))
+    rid = register(h)
+    h.run(TODAY)
+    assert reg(h, rid)["status_reason"] == "registration_lot_ambiguous" and h.apollo.enrollments == []
+    # once the old lot is closed out before that day, the answer is clear
+    h2 = make(tmp_path / "b", lots=[{**STOCK, "ships_until": "2025-09-27"}, newer])
+    customer(h2, lot=None, when=D(2025, 10, 1))
+    rid2 = register(h2)
+    h2.run(TODAY)
+    assert reg(h2, rid2)["lot_codes"] == ["HP-2510-G24"]
+
+
+def test_lot_written_on_the_order_wins_over_the_stock_rule(tmp_path):
+    other = {**LOT, "code": "HP-2508-G24", "coc_url": "https://x/c.pdf"}
+    h = make(tmp_path, lots=[STOCK, other])
+    customer(h, lot="HP-2508-G24", when=D(2025, 10, 1))
+    rid = register(h)
+    h.run(TODAY)
+    assert reg(h, rid)["lot_codes"] == ["HP-2508-G24"]
+    assert reg_track(h, rid)[0]["order_summary"]["registration"]["lot_basis"] == "written on the order"
+
+
+def test_every_pen_on_the_order_needs_a_lot_and_kits_are_skipped(tmp_path):
+    h = make(tmp_path, lots=[STOCK])
+    customer(h, lot=None, lines=[("PL-1003", 4, 145.0), ("PL-1006", 2, 70.0)])     # no nickel lot on record
+    rid = register(h)
+    h.run(TODAY)
+    assert reg(h, rid)["status_reason"] == "registration_no_lot_recorded" and h.apollo.enrollments == []
+    h2 = make(tmp_path / "b", lots=[STOCK])
+    customer(h2, lot=None, lines=[("PL-1003", 4, 145.0), ("PL-1000C", 1, 400.0)])  # a kit rides along
+    rid2 = register(h2)
+    h2.run(TODAY)
+    assert reg(h2, rid2)["lot_codes"] == ["HP-2509-G24"]

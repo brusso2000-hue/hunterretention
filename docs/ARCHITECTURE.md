@@ -133,16 +133,21 @@ Each daily run then works through new and held rows (`registration.py`):
 1. Account: exact email match, else company email domain. No match, a personal address, or several customer
    records on one domain (a company with several plants) is held for a person.
 2. Order: that account's most recent order with plating pens or a kit, within `registration.max_order_age_days`.
-3. Lot: read from the order itself. A pen line description containing `Lot CODE`, a custom field named
-   `Lot`, the invoice message or the private note. The code must exist in `config/lots.yaml` with a use-by
-   date and a certificate document, and be registered for that product.
+3. Lot, from the first of these that applies:
+   - written on the order: a pen line description containing `Lot CODE`, a custom field named `Lot`,
+     the invoice message or the private note;
+   - confirmed by a person with `registrations resolve ID --lot CODE`;
+   - the registry shows exactly one lot of that pen in stock on the day the order shipped
+     (`ships_from` / `ships_until` in `config/lots.yaml`). One lot on the shelf means nothing else could
+     have shipped, so nothing has to be typed on invoices.
+   The lot must exist in `config/lots.yaml` with a use-by date and a certificate document.
 4. Send: a track with flow `registration`, segment `P`. `c1` is the certificate email. `x1` is a reminder
    60 days before the earliest use-by date, dropped if they buy pens again first.
 
-**A lot number is never inferred.** No "oldest stock first" guess, no date math. If the lot is not written
-on the order and on file in the registry, the registration is held with the reason and nothing is sent.
-A person can confirm one by hand with `registrations resolve ID --lot CODE`, and only with a lot that is in
-the registry. This is deliberate: the email points at a Certificate of Conformance, and that has to be true.
+**A lot number is never guessed.** Two lots of the same pen in stock on the ship date, no lot on record
+for that day, or a kit-only order is held with the reason and nothing is sent. This is deliberate: the
+email points at a Certificate of Conformance, and that has to be true. How each lot was determined is
+stored on the track (`order_summary.registration.lot_basis`).
 
 Sending uses the normal dispatcher: modes, production approval, unsubscribes and bounces all apply. Because
 the customer asked for this email, the marketing-only rules do not: frequency caps, the $10K key-account

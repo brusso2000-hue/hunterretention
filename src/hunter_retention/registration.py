@@ -8,10 +8,14 @@ website writes one row to `registrations`. Each daily run then, per row:
   3. reads the lot number RECORDED on that order and looks it up in config/lots.yaml
   4. starts a small track: `c1` (certificate email, now) and `x1` (reminder before the use-by date)
 
-The rule that matters: a lot number is never guessed. It is only used when it was written on the
-QuickBooks order (or entered by a person with `registrations resolve --lot`) AND it exists in the lot
-registry with a use-by date and a certificate document. Anything else is held for a person, with the
-reason, and nothing is sent. A certificate has to be true.
+The rule that matters: a lot number is never guessed. It comes from one of three places, in this order:
+  * written on the QuickBooks order,
+  * confirmed by a person (`registrations resolve --lot`),
+  * the registry shows exactly one lot of that pen in stock on the day the order shipped
+    (`ships_from` / `ships_until`). With one lot on the shelf there was nothing else to ship.
+The lot must also exist in the registry with a use-by date and a certificate document. Two lots in stock
+at once, no lot on record for that day, or anything else unclear is held for a person, with the reason,
+and nothing is sent. A certificate has to be true.
 
 Sending goes through the normal dispatcher, so modes (dry_run / sandbox / live), production approval,
 unsubscribes and bounces all apply. Because the customer asked for this email, the marketing-only rules
@@ -48,7 +52,12 @@ class Lot:
     received: date | None
     use_by: date | None
     coc_url: str
+    ships_from: date | None = None       # first day orders ship from this lot
+    ships_until: date | None = None      # last day (empty while it is still the lot on the shelf)
     problems: list[str] = field(default_factory=list)
+
+    def in_stock_on(self, day: date) -> bool:
+        return bool(self.ships_from) and self.ships_from <= day and (self.ships_until is None or day <= self.ships_until)
 
 
 class LotRegistry:
@@ -62,7 +71,8 @@ class LotRegistry:
                 continue
             lot = Lot(code=code, skus=tuple(str(s).strip().upper() for s in (raw.get("skus") or [])),
                       received=parse_date(raw.get("received")), use_by=parse_date(raw.get("use_by")),
-                      coc_url=str(raw.get("coc_url") or "").strip())
+                      coc_url=str(raw.get("coc_url") or "").strip(),
+                      ships_from=parse_date(raw.get("ships_from")), ships_until=parse_date(raw.get("ships_until")))
             if not lot.use_by:
                 lot.problems.append("no use_by date")
             if not lot.coc_url:
@@ -71,6 +81,11 @@ class LotRegistry:
 
     def get(self, code: str | None) -> Lot | None:
         return self.lots.get((code or "").strip().upper())
+
+    def in_stock(self, sku: str, day: date) -> list[Lot]:
+        """Lots of this product that orders were shipping from on that day."""
+        sku = (sku or "").upper()
+        return [lot for lot in self.lots.values() if sku in lot.skus and lot.in_stock_on(day)]
 
 
 def recorded_lots(order: Order, raw: dict | None) -> list[tuple[str, str | None]]:
@@ -188,16 +203,19 @@ class RegistrationPlanner:
     def _lots_for(self, reg: dict, order: Order) -> list[dict]:
         pens = _pen_lines(order)
         pen_skus = {(ln.cls.sku or "").upper(): ln for ln in pens}
+        order_ref = {"order": order.pk, "doc_number": order.doc_number, "date": str(order.date),
+                     "pens": [f"{ln.qty:g} x {ln.cls.display} ({ln.cls.sku})" for ln in pens]}
+        self._basis = "confirmed by a person"
         if reg.get("manual_lot"):
             pairs: list[tuple[str, str | None]] = [(str(reg["manual_lot"]).upper(), None)]
         else:
             with self.db.engine.begin() as c:
                 raw = c.execute(select(qbo_txns.c.raw).where(qbo_txns.c.pk == order.pk)).scalar()
             pairs = recorded_lots(order, raw)
-        order_ref = {"order": order.pk, "doc_number": order.doc_number, "date": str(order.date),
-                     "pens": [f"{ln.qty:g} x {ln.cls.display} ({ln.cls.sku})" for ln in pens]}
-        if not pairs:
-            raise Hold("registration_no_lot_recorded", why="no lot number is written on this order", **order_ref)
+            self._basis = "written on the order"
+            if not pairs:
+                pairs = self._only_lot_in_stock(order, pens, order_ref)
+                self._basis = "only lot in stock on the ship date"
         out: dict[str, dict] = {}
         for code, sku in pairs:
             lot = self.lots.get(code)
@@ -216,6 +234,32 @@ class RegistrationPlanner:
                 if name not in d["products"]:
                     d["products"].append(name)
         return sorted(out.values(), key=lambda d: d["use_by"])
+
+    def _only_lot_in_stock(self, order: Order, pens: list, order_ref: dict) -> list[tuple[str, str | None]]:
+        """No lot written on the order. If exactly one lot of each pen was in stock on the day it shipped
+        (the registry's ships_from / ships_until), then that is the lot: there was nothing else to ship.
+        Two lots in stock at once, or none on record for that day, is not answerable from here and is held."""
+        shipped = order.ship_date or order.date
+        pairs: list[tuple[str, str | None]] = []
+        missing: list[str] = []
+        for ln in pens:
+            if ln.cls.role == "equipment":
+                continue                      # kits hold several pens; their lots are not tracked per kit
+            sku = (ln.cls.sku or "").upper()
+            lots = self.lots.in_stock(sku, shipped)
+            if len(lots) > 1:
+                raise Hold("registration_lot_ambiguous", sku=sku, shipped=str(shipped),
+                           lots=[lot.code for lot in lots],
+                           why="more than one lot of this pen was in stock on the ship date", **order_ref)
+            if lots:
+                pairs.append((lots[0].code, sku))
+            else:
+                missing.append(sku)
+        if missing or not pairs:
+            raise Hold("registration_no_lot_recorded", shipped=str(shipped), no_lot_for=missing,
+                       why="no lot is written on this order and the registry has no lot in stock for "
+                           "these pens on the ship date", **order_ref)
+        return pairs
 
     def _already_sent(self, email: str, order_pk: str) -> bool:
         with self.db.engine.begin() as c:
@@ -245,6 +289,7 @@ class RegistrationPlanner:
                                             "first_use_by": lots[0]["use_by"],
                                             "first_use_by_long": lots[0]["use_by_long"],
                                             "order_label": _order_label(order),
+                                            "lot_basis": getattr(self, "_basis", ""),
                                             "application": (reg.get("application") or "").strip()[:500]}},
             holdout=False, status="active", status_reason=None, reorder_status="none",
             created_at=utcnow(), updated_at=utcnow())
@@ -266,7 +311,8 @@ class RegistrationPlanner:
                                                  & review_queue.c.resolved_at.is_(None)).values(resolved_at=utcnow()))
         self.stats["started"] += 1
         self.db.log("registration_matched",
-                    f"{email} ({acct.company}): order {order.doc_number or order.pk}, lot {', '.join(d['code'] for d in lots)}",
+                    f"{email} ({acct.company}): order {order.doc_number or order.pk}, "
+                    f"lot {', '.join(d['code'] for d in lots)} ({getattr(self, '_basis', '')})",
                     run_id=self.run_id, account_key=acct.key, track_id=tid, data={"registration": reg["id"]})
 
     def _due(self, t: dict, use_by: date | None) -> date | None:
@@ -319,9 +365,9 @@ class RegistrationPlanner:
 
 
 def _pen_lines(order: Order) -> list:
-    """Plating pens, and the kits that ship with pens in the box."""
+    """Plating pens, degreaser pens, and the kits that ship with pens in the box."""
     return [ln for ln in order.lines if ln.cls.status == LIFECYCLE and ln.cls.family == PEN_FAMILY
-            and ln.cls.role in ("consumable", "equipment")]
+            and ln.cls.role in ("consumable", "prep", "equipment")]
 
 
 def _long(d: date | None) -> str:
