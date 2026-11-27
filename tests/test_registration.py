@@ -287,3 +287,30 @@ def test_order_is_named_by_po_number_or_invoice_number(tmp_path):
     rid2 = register(h2)
     h2.run(TODAY)
     assert reg_track(h2, rid2)[1]["c1"]["rendered_subject"] == "Your Certificate of Conformance (invoice 10432)"
+
+
+def test_shipped_lot_registry_is_well_formed(tmp_path):
+    """The real config/lots.yaml: every lot has a use-by date and covers exactly one known pen."""
+    from hunter_retention.classify import Classifier
+    from hunter_retention.config import load_config
+    from hunter_retention.registration import LotRegistry
+    cfg = load_config()
+    lots = LotRegistry(cfg).lots
+    cls = Classifier(cfg.products, cfg.lifecycle)
+    seen = set()
+    for lot in lots.values():
+        assert lot.use_by, lot.code
+        assert len(lot.skus) == 1 and lot.skus[0] not in seen, lot.code
+        seen.add(lot.skus[0])
+        c = cls.classify_item(None, lot.skus[0])
+        assert c.family == "micro_metallizer" and c.role in ("consumable", "prep"), lot.code
+
+
+def test_degreaser_pens_can_be_registered(tmp_path):
+    lot = {"code": "L2025091502", "skus": ["PL-1002"], "use_by": "2026-09-15", "coc_url": "https://x/L2025091502.pdf"}
+    h = make(tmp_path, lots=[lot])
+    tid = customer(h, lot=None, lines=[("PL-1002", 6, 65.0)])
+    h.qbo.txns["Invoice"][tid]["Line"][0]["Description"] = "Degreaser pen Lot L2025091502"
+    rid = register(h)
+    h.run(TODAY)
+    assert reg(h, rid)["lot_codes"] == ["L2025091502"] and h.apollo.sent_to("dana.lee@acme.com") == ["seq_p1"]

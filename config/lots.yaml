@@ -11,6 +11,7 @@
 #   code      your lot number for this shipment. Letters, digits and dashes.
 #   skus      the items that arrived in this shipment (QuickBooks SKUs). Leave empty to allow any pen.
 #   received  the day the shipment was received and put into stock.
+#   made      date of manufacture (DOM), as stated by the supplier.
 #   use_by    the last day these pens should be used.
 #   coc_url   link to the Certificate of Conformance for this lot (a PDF you issued and can stand behind).
 #   note      internal only, never sent to customers (your receiving paperwork reference).
@@ -23,4 +24,118 @@
 #     coc_url: "https://hunterproducts.com/coc/HP-2611-G24.pdf"
 #     note: ""
 
-lots: []
+# ---------------------------------------------------------------------------------------------------
+# Lots L20261020xx: pens in stock in November 2026.
+# Basis (Brandon Russo, 2026-11-27): the supplier told Hunter these pens were made on 10/20/2026.
+# Use-by is 12 months after manufacture. Lot code = L + manufacture date + last two digits of the part number.
+# coc_url is empty until the signed certificate for each lot is published. Until then a registration
+# for one of these lots is held, not sent.
+lots:
+  - code: "L2026102002"      # Absorbent/Degreaser Pen
+    skus: ["PL-1002"]
+    made: 2026-10-20
+    received:
+    use_by: 2027-10-20
+    coc_url: ""
+  - code: "L2026102003"      # 24K Gold Plating Pen
+    skus: ["PL-1003"]
+    made: 2026-10-20
+    received:
+    use_by: 2027-10-20
+    coc_url: ""
+  - code: "L2026102004"      # 18K Gold Plating Pen
+    skus: ["PL-1004"]
+    made: 2026-10-20
+    received:
+    use_by: 2027-10-20
+    coc_url: ""
+  - code: "L2026102005"      # 14K Gold Plating Pen
+    skus: ["PL-1005"]
+    made: 2026-10-20
+    received:
+    use_by: 2027-10-20
+    coc_url: ""
+  - code: "L2026102006"      # Nickel Plating Pen
+    skus: ["PL-1006"]
+    made: 2026-10-20
+    received:
+    use_by: 2027-10-20
+    coc_url: ""
+  - code: "L2026102007"      # Black Nickel Plating Pen
+    skus: ["PL-1007"]
+    made: 2026-10-20
+    received:
+    use_by: 2027-10-20
+    coc_url: ""
+  - code: "L2026102008"      # Silver Plating Pen
+    skus: ["PL-1008"]
+    made: 2026-10-20
+    received:
+    use_by: 2027-10-20
+    coc_url: ""
+  - code: "L2026102009"      # Chrome Color Plating Pen
+    skus: ["PL-1009"]
+    made: 2026-10-20
+    received:
+    use_by: 2027-10-20
+    coc_url: ""
+  - code: "L2026102010"      # Copper Plating Pen
+    skus: ["PL-1010"]
+    made: 2026-10-20
+    received:
+    use_by: 2027-10-20
+    coc_url: ""
+  - code: "L2026102012"      # Tin Plating Pen
+    skus: ["PL-1012"]
+    made: 2026-10-20
+    received:
+    use_by: 2027-10-20
+    coc_url: ""
+  - code: "L2026102013"      # Zinc Plating Pen
+    skus: ["PL-1013"]
+    made: 2026-10-20
+    received:
+    use_by: 2027-10-20
+    coc_url: ""
+  - code: "L2026102014"      # Stainless Steel Degreaser Pen
+    skus: ["PL-1014"]
+    made: 2026-10-20
+    received:
+    use_by: 2027-10-20
+    coc_url: ""
+  - code: "L2026102015"      # Palladium Plating Pen
+    skus: ["PL-1015"]
+    made: 2026-10-20
+    received:
+    use_by: 2027-10-20
+    coc_url: ""
+  - code: "L2026102016"      # 24K Gold Heavy Duty Plating Pen
+    skus: ["PL-1016"]
+    made: 2026-10-20
+    received:
+    use_by: 2027-10-20
+    coc_url: ""
+  - code: "L2026102017"      # 18K Gold Heavy Duty Plating Pen
+    skus: ["PL-1017"]
+    made: 2026-10-20
+    received:
+    use_by: 2027-10-20
+    coc_url: ""
+  - code: "L2026102018"      # Silver Heavy Duty Plating Pen
+    skus: ["PL-1018"]
+    made: 2026-10-20
+    received:
+    use_by: 2027-10-20
+    coc_url: ""
+  - code: "L2026102019"      # Copper Heavy Duty Plating Pen
+    skus: ["PL-1019"]
+    made: 2026-10-20
+    received:
+    use_by: 2027-10-20
+    coc_url: ""
+  - code: "L2026102020"      # Nickel Heavy Duty Plating Pen
+    skus: ["PL-1020"]
+    made: 2026-10-20
+    received:
+    use_by: 2027-10-20
+    coc_url: ""

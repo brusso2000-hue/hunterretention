@@ -319,9 +319,9 @@ class RegistrationPlanner:
 
 
 def _pen_lines(order: Order) -> list:
-    """Plating pens, and the kits that ship with pens in the box."""
+    """Plating pens, degreaser pens, and the kits that ship with pens in the box."""
     return [ln for ln in order.lines if ln.cls.status == LIFECYCLE and ln.cls.family == PEN_FAMILY
-            and ln.cls.role in ("consumable", "equipment")]
+            and ln.cls.role in ("consumable", "prep", "equipment")]
 
 
 def _long(d: date | None) -> str:
