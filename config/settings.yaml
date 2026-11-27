@@ -94,10 +94,11 @@ contacts:
   own_domains: [hunterproducts.com, hunterproducts.co]
 
 # Pen registrations from hunterproducts.com/register/ (see registration.py and config/lots.yaml).
-# OFF until the lot registry has real lots, lots are being written on orders, and the copy is approved.
-# While off, registrations are still stored by the website; nothing is matched or sent.
+# Turned on 2026-11-27 by Brandon Russo: 18 lots are in the registry with published certificates, and
+# the two emails (content/emails.yaml, tracks.P) were approved. Set to false to stop matching and sending;
+# the website keeps storing registrations either way.
 registration:
-  enabled: false
+  enabled: true
   max_order_age_days: 400           # only match pen orders this recent (a pen's shelf life is 12 months)
 
 # Reorder flow: existing customers who are taking longer than usual to reorder.
