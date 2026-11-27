@@ -244,7 +244,7 @@ class RegistrationPlanner:
                            "registration": {"id": reg["id"], "lots": lots, "many": len(lots) > 1,
                                             "first_use_by": lots[0]["use_by"],
                                             "first_use_by_long": lots[0]["use_by_long"],
-                                            "doc_number": order.doc_number or "",
+                                            "order_label": _order_label(order),
                                             "application": (reg.get("application") or "").strip()[:500]}},
             holdout=False, status="active", status_reason=None, reorder_status="none",
             created_at=utcnow(), updated_at=utcnow())
@@ -326,3 +326,11 @@ def _pen_lines(order: Order) -> list:
 
 def _long(d: date | None) -> str:
     return f"{d.strftime('%B')} {d.day}, {d.year}" if d else ""
+
+
+def _order_label(order: Order) -> str:
+    """How to name the order to the customer: their PO number when there is one, else our invoice number."""
+    po = (order.po_number or "").strip()
+    if po:
+        return po if po.upper().startswith(("PO", "P.O")) else f"PO {po}"
+    return f"invoice {order.doc_number}" if order.doc_number else ""

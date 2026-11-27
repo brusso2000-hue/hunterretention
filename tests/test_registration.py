@@ -82,7 +82,7 @@ def test_recorded_lot_sends_the_certificate_to_the_person_who_registered(tmp_pat
     body = t["c1"]["rendered_body"]
     assert "Hi Dana," in body and "Lot HP-2509-G24: 24K Gold Plating Pen" in body
     assert "Use by: September 15, 2026" in body and "https://hunterproducts.com/coc/HP-2509-G24.pdf" in body
-    assert "PO PO-881" in body and "PO PO-881" in t["c1"]["rendered_subject"]
+    assert "your order, PO-881." in body and t["c1"]["rendered_subject"] == "Your Certificate of Conformance (PO-881)"
     assert t["x1"]["status"] == "scheduled" and t["x1"]["due_date"] == D(2026, 7, 17)     # 60 days before use-by
 
 
@@ -273,3 +273,17 @@ def test_invalid_email_is_rejected(tmp_path):
     rid = register(h, email="not-an-email")
     h.run(TODAY)
     assert reg(h, rid)["status"] == "rejected"
+
+
+def test_order_is_named_by_po_number_or_invoice_number(tmp_path):
+    h = make(tmp_path)
+    customer(h, po="88112")
+    rid = register(h)
+    h.run(TODAY)
+    assert reg_track(h, rid)[1]["c1"]["rendered_subject"] == "Your Certificate of Conformance (PO 88112)"
+    h2 = make(tmp_path / "b")
+    tid = customer(h2, po=None)
+    h2.qbo.txns["Invoice"][tid]["DocNumber"] = "10432"
+    rid2 = register(h2)
+    h2.run(TODAY)
+    assert reg_track(h2, rid2)[1]["c1"]["rendered_subject"] == "Your Certificate of Conformance (invoice 10432)"

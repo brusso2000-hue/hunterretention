@@ -423,11 +423,11 @@ tracks:
   # reg.lots = the lot(s) recorded on their order: code, products, use_by_long, coc_url. Never invented.
   P:
     c1:
-      subject: "Your Certificate of Conformance{% if po_number %} (PO {{ po_number }}){% elif reg.doc_number %} (invoice {{ reg.doc_number }}){% endif %}"
+      subject: "Your Certificate of Conformance{% if reg.order_label %} ({{ reg.order_label }}){% endif %}"
       body: |
         {{ greeting }}
 
-        Thanks for registering your plating pens. Here {% if reg.many %}are the Certificates{% else %}is the Certificate{% endif %} of Conformance for your order{% if po_number %}, PO {{ po_number }}{% elif reg.doc_number %}, invoice {{ reg.doc_number }}{% endif %}.
+        Thanks for registering your plating pens. Here {% if reg.many %}are the Certificates{% else %}is the Certificate{% endif %} of Conformance for your order{% if reg.order_label %}, {{ reg.order_label }}{% endif %}.
 
         {% for lot in reg.lots %}
         Lot {{ lot.code }}: {{ lot.products | join(", ") }}
