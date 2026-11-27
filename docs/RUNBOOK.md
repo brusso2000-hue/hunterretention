@@ -93,11 +93,16 @@ and never stored.
 ## Pen registrations
 
 When a shipment of pens arrives:
-1. Add the lot to `config/lots.yaml` (code, SKUs, received date, use-by date, link to the certificate PDF).
-2. Label the stock with the lot code.
+1. Add the lot to `config/lots.yaml`: code, SKU, manufacture date, use-by date, link to the certificate PDF.
+2. Ship the old lot out first. On the day the old lot runs out, set its `ships_until` to that day and the
+   new lot's `ships_from` to the next day.
 
-When an order ships: write the lot on the QuickBooks invoice, in the pen line's description
-(`24K Gold Plating Pen  Lot HP-2611-G24`) or in a custom field named `Lot`.
+That is all the bookkeeping. While one lot of a pen is on the shelf, every order that ships gets that lot
+automatically. Nothing is typed on invoices.
+
+If two lots of the same pen are ever in stock at once, orders shipped in that overlap are held. To avoid
+the hold for a specific order, write the lot on its invoice (`24K Gold Plating Pen  Lot L2026102003` in the
+pen line's description, or a custom field named `Lot`).
 
 Commands:
 ```
