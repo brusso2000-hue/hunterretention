@@ -149,6 +149,9 @@ class Dispatcher:
         if not email:
             self._defer(t, "no_email")
             return False
+        # A pen registration is an email the customer asked for (their lot certificate), not marketing.
+        # Unsubscribes and bounces still stop it; the marketing-only rules below do not apply.
+        requested = tr.get("flow") == "registration"
 
         sup = self._suppression(email)
         if sup:
@@ -161,7 +164,7 @@ class Dispatcher:
 
         # House rule: accounts that spend this much a year never get automated emails, in either flow.
         limit = float(self.cfg.s("eligibility.no_automation_min_revenue_12m", 0) or 0)
-        if limit and tr["status"] == "active":
+        if limit and tr["status"] == "active" and not requested:
             rev = self._revenue_12m().get(tr["account_key"], 0.0)
             if rev >= limit:
                 self._stop_track(tr, "key_account_no_automation")
@@ -179,7 +182,7 @@ class Dispatcher:
             self._defer(t, "engagement_sync_failed")
             return False
 
-        cap = self._frequency_block(tr)
+        cap = None if requested else self._frequency_block(tr)
         if cap:
             self._defer(t, cap)
             return False
@@ -232,12 +235,13 @@ class Dispatcher:
         pool = [v for v in (self.cfg.s("apollo.sequence_pool", []) or []) if v]
         return list(dict.fromkeys(named + pool))
 
-    def _sequence_id(self, touch_key: str, contact: dict | None = None, email: str | None = None) -> str:
+    def _sequence_id(self, touch_key: str, contact: dict | None = None, email: str | None = None,
+                     pool_ok: bool = False) -> str:
         """Apollo sends a contact each sequence only once, ever. So for every email we pick a sequence this
         person has not been through yet: the touch's own sequence first, then any other one. That is what
         lets a customer go through the reorder emails again each time they fall behind."""
         preferred = (self.cfg.s("apollo.sequences", {}) or {}).get(touch_key)
-        if not preferred:
+        if not preferred and not (pool_ok and self._all_sequences()):
             raise LiveSendBlocked(f"No Apollo sequence id configured for {touch_key}")
         used = {st.get("emailer_campaign_id") for st in contact_flags(contact)["statuses"]} if contact else set()
         if email:
@@ -245,7 +249,8 @@ class Dispatcher:
                 used |= {r[0] for r in c.execute(select(touches.c.apollo_sequence_id).where(
                     (touches.c.sent_to_email == email) & touches.c.apollo_sequence_id.isnot(None)
                     & touches.c.status.in_(("sent", "enrolling", "recalled", "failed"))))}
-        free = [x for x in dict.fromkeys([preferred] + self._all_sequences()) if x not in used]
+        candidates = [preferred] + self._all_sequences() if preferred else self._pool_first()
+        free = [x for x in dict.fromkeys(candidates) if x not in used]
         if not free:
             raise NoUnusedSequence(f"{email} has been through all {len(self._all_sequences())} sequences")
         low = int(self.cfg.s("apollo.pool_low_warning", 3))
@@ -256,6 +261,11 @@ class Dispatcher:
                                "Add more one-step sequences to apollo.sequence_pool in config/settings.yaml.")
         return free[0]
 
+    def _pool_first(self) -> list[str]:
+        """Emails with no sequence of their own (pen registration) use the spare pool before the named ones."""
+        pool = [v for v in (self.cfg.s("apollo.sequence_pool", []) or []) if v]
+        return list(dict.fromkeys(pool + self._all_sequences()))
+
     def _send_sandbox(self, tr: dict, t: dict, rendered) -> bool:
         limit = int(self.cfg.s("sandbox.max_per_run", 5))
         if self.stats["sandbox"] >= limit:
@@ -263,7 +273,7 @@ class Dispatcher:
         to = self.cfg.s("sandbox.redirect_to")
         if not to or self.apollo is None:
             raise LiveSendBlocked("sandbox mode needs sandbox.redirect_to and APOLLO_API_KEY")
-        seq = self._sequence_id(t["touch_key"])
+        seq = self._sequence_id(t["touch_key"], pool_ok=tr.get("flow") == "registration")
         subject = f"[TEST {tr['segment']}/{t['touch_key']} {tr.get('company') or ''}] {rendered.subject}"
         fields = self._field_values(tr, t, rendered, seq, subject_override=subject)
         contact = self.apollo.find_contact(to)
@@ -295,11 +305,12 @@ class Dispatcher:
             return False
         hp_seqs = set(self._all_sequences())
         other_active = [s for s in flags["active_sequences"] if s not in hp_seqs]
-        if other_active and self.cfg.s("apollo.skip_if_active_in_other_sequences", True):
+        requested = tr.get("flow") == "registration"
+        if other_active and not requested and self.cfg.s("apollo.skip_if_active_in_other_sequences", True):
             self._defer(t, "active_in_other_apollo_sequence")
             return False
         try:
-            seq = self._sequence_id(t["touch_key"], contact, email)
+            seq = self._sequence_id(t["touch_key"], contact, email, pool_ok=requested)
         except NoUnusedSequence as exc:
             self._set_touch(t, "failed", f"no_unused_sequence:{exc}"[:250])
             self.stats["failed"] += 1
@@ -394,7 +405,8 @@ class Dispatcher:
             "last_purchase_date": str(last.date) if last else "",
             "last_purchase_category": last_cat or "",
             "total_orders": len(orders),
-            "customer_lifecycle_stage": f"first_purchase_{t['touch_key']}",
+            "customer_lifecycle_stage": (f"pen_registration_{t['touch_key']}" if tr.get("flow") == "registration"
+                                         else f"first_purchase_{t['touch_key']}"),
             "reorder_status": tr.get("reorder_status") or "none",
             "assigned_sequence": f"{tr['segment']}-{tr.get('subsegment')}-{t['touch_key']}",
             "sequence_enrollment_date": str(self.today),

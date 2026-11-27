@@ -17,6 +17,7 @@ from .db import DB, runs, utcnow
 from .dispatch import Dispatcher, LiveSendBlocked
 from .engine import Planner
 from .qbo import QBOSource
+from .registration import RegistrationPlanner
 from .render import Renderer
 from .reorder import ReorderPlanner
 from .report import write_report
@@ -55,6 +56,7 @@ def run_daily(cfg: Config, db: DB, qbo: QBOSource | None, apollo: ApolloAPI | No
             also=reorder.due_accounts())
         stats["plan"] = Planner(db, cfg, classifier, world, today, run_id).plan()
         stats["reorder"] = reorder.plan()      # after the first-time plan, so new first-time tracks win
+        stats["registration"] = RegistrationPlanner(db, cfg, classifier, world, today, run_id).plan()
 
         renderer = Renderer(cfg)
         dispatcher = Dispatcher(db, cfg, renderer, world, today, apollo, alerter, run_id)
@@ -76,6 +78,9 @@ def run_daily(cfg: Config, db: DB, qbo: QBOSource | None, apollo: ApolloAPI | No
         if stats["plan"].get("unclassified"):
             alerter.alert(f"{stats['plan']['unclassified']} first-time order(s) need product classification",
                           "Run `hunter-retention review` and add the items to config/products.yaml")
+        if stats["registration"].get("held_new"):
+            alerter.alert(f"{stats['registration']['held_new']} pen registration(s) need a person",
+                          "Run `hunter-retention registrations` to see why, then `registrations resolve`")
         if stats["dispatch"].get("failed"):
             alerter.alert(f"{stats['dispatch']['failed']} email enrollment(s) failed permanently")
 

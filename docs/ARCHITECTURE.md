@@ -123,3 +123,31 @@ Postgres (SQLite for tests). Tables: `qbo_customers`, `qbo_items`, `qbo_txns`, `
 * Frequency caps: 7 days between emails, max 2 per 30 days per address across all records.
 * Replies stop the sequence (a human takes over). Unsubscribes and bounces go to a permanent suppression list.
 * 10% random holdout (configurable) so revenue lift can be measured instead of assumed.
+
+## 9. Pen registration (certificate email and use-by reminder)
+
+Customers scan the card in the pen box and fill in the form at `hunterproducts.com/register/`. The website
+stores each submission in the `registrations` table (its `/api/register` function, see the website repo).
+Each daily run then works through new and held rows (`registration.py`):
+
+1. Account: exact email match, else company email domain. No match, a personal address, or several customer
+   records on one domain (a company with several plants) is held for a person.
+2. Order: that account's most recent order with plating pens or a kit, within `registration.max_order_age_days`.
+3. Lot: read from the order itself. A pen line description containing `Lot CODE`, a custom field named
+   `Lot`, the invoice message or the private note. The code must exist in `config/lots.yaml` with a use-by
+   date and a certificate document, and be registered for that product.
+4. Send: a track with flow `registration`, segment `P`. `c1` is the certificate email. `x1` is a reminder
+   60 days before the earliest use-by date, dropped if they buy pens again first.
+
+**A lot number is never inferred.** No "oldest stock first" guess, no date math. If the lot is not written
+on the order and on file in the registry, the registration is held with the reason and nothing is sent.
+A person can confirm one by hand with `registrations resolve ID --lot CODE`, and only with a lot that is in
+the registry. This is deliberate: the email points at a Certificate of Conformance, and that has to be true.
+
+Sending uses the normal dispatcher: modes, production approval, unsubscribes and bounces all apply. Because
+the customer asked for this email, the marketing-only rules do not: frequency caps, the $10K key-account
+rule and "already in another Apollo sequence". These emails have no Apollo sequence of their own and draw
+from `apollo.sequence_pool`.
+
+The flow is off (`registration.enabled: false`) until the lot registry holds real lots, lots are being
+written on orders at shipping, and the two emails in `content/emails.yaml` (`tracks.P`) are approved.

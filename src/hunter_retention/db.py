@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import (
     JSON, Boolean, Column, Date, DateTime, Float, Index, Integer, MetaData, String, Table, Text,
-    UniqueConstraint, create_engine, insert, select, update,
+    UniqueConstraint, create_engine, func, insert, select, update,
 )
 from sqlalchemy.engine import Engine
 
@@ -232,6 +232,30 @@ contacts = Table(
     Column("created_at", DateTime),
     Column("updated_at", DateTime),
     UniqueConstraint("account_key", "email", name="uq_contact_account_email"),
+)
+
+# Pen registrations from hunterproducts.com/register/. The website writes rows (status "new"); the daily
+# job matches each one to an order and a recorded lot, then sends the certificate email or holds it.
+registrations = Table(
+    "registrations", metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("created_at", DateTime, server_default=func.now()),
+    Column("first_name", String(128)),
+    Column("last_name", String(128)),
+    Column("email", String(255), nullable=False, index=True),
+    Column("company", String(255)),
+    Column("application", Text),                 # "What are you plating?" (optional)
+    Column("source", String(32), server_default="web"),
+    Column("status", String(24), nullable=False, server_default="new"),
+    # new | matched | held | duplicate | rejected
+    Column("status_reason", String(255)),
+    Column("account_key", String(128)),
+    Column("order_pk", String(64)),
+    Column("lot_codes", JSON),
+    Column("track_id", Integer),
+    Column("manual_lot", String(64)),            # set by `registrations resolve --lot` after a person checked
+    Column("manual_order_pk", String(64)),
+    Column("processed_at", DateTime),
 )
 
 apollo_fields = Table(
