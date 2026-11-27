@@ -418,6 +418,55 @@ tracks:
         {{ sender_website }}
 
 # ============================================================================ versions by contact type
+  # ===================================================================== P: pen registration
+  # Sent to people who registered a pen at hunterproducts.com/register/. They asked for this.
+  # reg.lots = the lot(s) recorded on their order: code, products, use_by_long, coc_url. Never invented.
+  P:
+    c1:
+      subject: "Your Certificate of Conformance{% if po_number %} (PO {{ po_number }}){% elif reg.doc_number %} (invoice {{ reg.doc_number }}){% endif %}"
+      body: |
+        {{ greeting }}
+
+        Thanks for registering your plating pens. Here {% if reg.many %}are the Certificates{% else %}is the Certificate{% endif %} of Conformance for your order{% if po_number %}, PO {{ po_number }}{% elif reg.doc_number %}, invoice {{ reg.doc_number }}{% endif %}.
+
+        {% for lot in reg.lots %}
+        Lot {{ lot.code }}: {{ lot.products | join(", ") }}
+        Use by: {{ lot.use_by_long }}
+        Certificate: {{ lot.coc_url }}
+
+        {% endfor %}
+        I'll send a reminder before the use-by date so you can reorder in time.
+
+        Any question about the certificate, reply here or call {{ sender_phone }}.
+
+        Best,
+        {{ sender_name }}
+        {{ sender_company }}
+        {{ sender_address }}
+        {{ sender_phone }}
+        {{ sender_website }}
+    x1:
+      subject: "Your plating pens reach their use-by date on {{ reg.first_use_by_long }}"
+      body: |
+        {{ greeting }}
+
+        A heads up on the plating pens you registered:
+
+        {% for lot in reg.lots %}
+        Lot {{ lot.code }}: {{ lot.products | join(", ") }}, use by {{ lot.use_by_long }}
+
+        {% endfor %}
+        If you still rely on them, now is a good time to reorder so there's no gap. Reply with quantities and a PO number and it ships the same or next business day.
+
+        Order online: {{ store_url }}
+
+        Best,
+        {{ sender_name }}
+        {{ sender_company }}
+        {{ sender_address }}
+        {{ sender_phone }}
+        {{ sender_website }}
+
 role_variants:
   # --------------------------------------------------------------- buyer (purchasing; did not use the product)
   buyer:

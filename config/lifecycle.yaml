@@ -84,3 +84,9 @@ tracks:
       - {key: r1, offset_days: 0,  window_days: 14, suppress_on: [any_purchase], recheck_live: true}
       - {key: r2, offset_days: 14, window_days: 14, suppress_on: [any_purchase], recheck_live: true}
       - {key: r3, offset_days: 30, window_days: 14, suppress_on: [any_purchase], recheck_live: true}
+  P:   # Pen registration (see registration.py). Requested by the customer, so marketing caps do not apply.
+       # c1 = certificate email, sent on the next run after a lot is confirmed.
+       # x1 = reminder lead_days before the earliest use-by date among the registered lots.
+    touches:
+      - {key: c1, offset_days: 0, window_days: 14, suppress_on: []}
+      - {key: x1, offset: use_by, lead_days: 60, window_days: 30, min_days_after_registration: 7, min_days_before_use_by: 14, suppress_on: []}

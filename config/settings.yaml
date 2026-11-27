@@ -93,6 +93,13 @@ contacts:
   mailboxes: ["hunter@hunterproducts.com", "sales@hunterproducts.com"]
   own_domains: [hunterproducts.com, hunterproducts.co]
 
+# Pen registrations from hunterproducts.com/register/ (see registration.py and config/lots.yaml).
+# OFF until the lot registry has real lots, lots are being written on orders, and the copy is approved.
+# While off, registrations are still stored by the website; nothing is matched or sent.
+registration:
+  enabled: false
+  max_order_age_days: 400           # only match pen orders this recent (a pen's shelf life is 12 months)
+
 # Reorder flow: existing customers who are taking longer than usual to reorder.
 reorder:
   enabled: true

@@ -279,6 +279,74 @@ def cmd_review(cfg, args) -> int:
     return 0
 
 
+def cmd_registrations(cfg, args) -> int:
+    """Pen registrations: list them, or tell the job which lot / order a held one belongs to."""
+    from .db import registrations
+    from .registration import LotRegistry
+    db = _db(cfg)
+    if args.action == "add":
+        if not args.email:
+            print("--email is required"); return 1
+        with db.engine.begin() as c:
+            rid = c.execute(insert(registrations).values(
+                email=args.email.lower(), first_name=args.first, last_name=args.last, company=args.company,
+                source="manual", status="new", created_at=utcnow())).inserted_primary_key[0]
+        print(f"added registration #{rid}"); return 0
+    if args.action in ("resolve", "reject"):
+        if not args.id:
+            print("give the registration number, e.g. `registrations resolve 12 --lot HP-2611-G24`"); return 1
+        with db.engine.begin() as c:
+            r = c.execute(select(registrations).where(registrations.c.id == args.id)).mappings().first()
+            if not r:
+                print("not found"); return 1
+            if args.action == "reject":
+                c.execute(update(registrations).where(registrations.c.id == args.id).values(
+                    status="rejected", status_reason="rejected by a person", processed_at=utcnow()))
+                c.execute(update(review_queue).where(review_queue.c.ref == f"registration:{args.id}")
+                          .values(resolved_at=utcnow()))
+                print(f"rejected #{args.id}"); return 0
+            if r["status"] not in ("new", "held"):
+                print(f"#{args.id} is already {r['status']}"); return 1
+            vals = {}
+            if args.lot:
+                lot = LotRegistry(cfg).get(args.lot)
+                if lot is None:
+                    print(f"Lot {args.lot.upper()} is not in config/lots.yaml. Add it there first: a certificate "
+                          "can only name a lot you have on record."); return 1
+                if lot.problems:
+                    print(f"Lot {lot.code} is incomplete in config/lots.yaml: {'; '.join(lot.problems)}"); return 1
+                vals["manual_lot"] = lot.code
+            if args.order:
+                vals["manual_order_pk"] = args.order
+            if not vals:
+                print("nothing to change: give --lot and/or --order"); return 1
+            c.execute(update(registrations).where(registrations.c.id == args.id).values(**vals))
+        print(f"#{args.id} updated; it is matched again on the next run"); return 0
+    with db.engine.begin() as c:
+        q = select(registrations).order_by(registrations.c.id.desc())
+        if not args.all:
+            q = q.where(registrations.c.status.in_(("new", "held")))
+        rows = c.execute(q.limit(200)).mappings().all()
+    for r in rows:
+        who = f"{r['first_name'] or ''} {r['last_name'] or ''}".strip()
+        print(f"#{r['id']:<4} {str(r['created_at'])[:10]}  {r['status']:<9} {r['email']:<34} {(r['company'] or '')[:24]:<24} "
+              f"{who[:20]:<20} {r['status_reason'] or ''}{'  lot ' + ','.join(r['lot_codes']) if r['lot_codes'] else ''}")
+    if not rows:
+        print("No registrations waiting." if not args.all else "No registrations yet.")
+    return 0
+
+
+def cmd_lots(cfg, args) -> int:
+    from .registration import LotRegistry
+    lots = LotRegistry(cfg).lots
+    for lot in lots.values():
+        print(f"{lot.code:<18} received {lot.received}  use by {lot.use_by}  skus {','.join(lot.skus) or 'any pen'}"
+              f"{'  PROBLEM: ' + '; '.join(lot.problems) if lot.problems else ''}")
+    if not lots:
+        print("No lots in config/lots.yaml yet.")
+    return 1 if any(lot.problems for lot in lots.values()) else 0
+
+
 def cmd_audit_items(cfg, args) -> int:
     db = _db(cfg)
     clf = Classifier(cfg.products, cfg.lifecycle)
@@ -546,6 +614,12 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--action", choices=["enroll", "exclude", "done"], default="done"); s.add_argument("--email")
     s.add_argument("--role", choices=["user", "buyer", "owner_operator", "unknown"])
     s.set_defaults(fn=cmd_review)
+    s = sub.add_parser("registrations", help="pen registrations: list | resolve | reject | add")
+    s.add_argument("action", nargs="?", choices=["list", "resolve", "reject", "add"], default="list")
+    s.add_argument("id", nargs="?", type=int); s.add_argument("--lot"); s.add_argument("--order")
+    s.add_argument("--all", action="store_true"); s.add_argument("--email"); s.add_argument("--first")
+    s.add_argument("--last"); s.add_argument("--company"); s.set_defaults(fn=cmd_registrations)
+    s = sub.add_parser("lots", help="list the lot registry and flag incomplete lots"); s.set_defaults(fn=cmd_lots)
     s = sub.add_parser("audit-items"); s.add_argument("--all", action="store_true"); s.set_defaults(fn=cmd_audit_items)
     s = sub.add_parser("preview"); s.add_argument("--segment", default="A"); s.add_argument("--touch", default="e1")
     s.add_argument("--app"); s.add_argument("--track", type=int)

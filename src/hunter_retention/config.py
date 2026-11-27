@@ -4,6 +4,7 @@ Three YAML files drive behavior so products, timing and copy can change without 
   config/settings.yaml   program settings, Apollo ids, caps, mode
   config/products.yaml   product classification table
   config/lifecycle.yaml  segments, touch timing, suppression rules
+  config/lots.yaml       lot registry: one entry per inbound pen shipment
   content/emails.yaml    email copy (Jinja2 templates)
 
 Secrets come only from environment variables.
@@ -85,6 +86,7 @@ class Config:
     lifecycle: dict
     emails: dict
     secrets: Secrets = field(default_factory=Secrets.from_env)
+    lots: dict = field(default_factory=dict)        # config/lots.yaml: the lot registry (inbound shipments)
 
     # convenience accessors -------------------------------------------------
     @property
@@ -139,13 +141,15 @@ def load_config(
     products = _load_yaml(cdir / "products.yaml")
     lifecycle = _load_yaml(cdir / "lifecycle.yaml")
     emails = _load_yaml(tdir / "emails.yaml")
+    lots = _load_yaml(cdir / "lots.yaml") if (cdir / "lots.yaml").exists() else {}
     if overrides:
+        _deep_merge(lots, overrides.get("lots", {}))
         _deep_merge(settings, overrides.get("settings", {}))
         _deep_merge(products, overrides.get("products", {}))
         _deep_merge(lifecycle, overrides.get("lifecycle", {}))
         _deep_merge(emails, overrides.get("emails", {}))
     return Config(settings=settings, products=products, lifecycle=lifecycle, emails=emails,
-                  secrets=secrets or Secrets.from_env())
+                  secrets=secrets or Secrets.from_env(), lots=lots)
 
 
 def _deep_merge(base: dict, extra: dict) -> dict:

@@ -89,3 +89,29 @@ and never stored.
 - **Alerts.** A failed run, or any alert, opens a GitHub issue that mentions the owner.
 - **Unsubscribe footer.** Turned off in Apollo (Settings > Personal > Profile > Email settings) at the owner's request.
 - **Test sends.** Workflow input `test-send:smoke:text` sends one sample to `sandbox.redirect_to` only.
+
+## Pen registrations
+
+When a shipment of pens arrives:
+1. Add the lot to `config/lots.yaml` (code, SKUs, received date, use-by date, link to the certificate PDF).
+2. Label the stock with the lot code.
+
+When an order ships: write the lot on the QuickBooks invoice, in the pen line's description
+(`24K Gold Plating Pen  Lot HP-2611-G24`) or in a custom field named `Lot`.
+
+Commands:
+```
+hunter-retention lots                               # the registry, with anything incomplete flagged
+hunter-retention registrations                      # registrations waiting (new or held) and why
+hunter-retention registrations --all                # everything
+hunter-retention registrations resolve 12 --lot HP-2611-G24      # you checked: this pen is from that lot
+hunter-retention registrations resolve 12 --order Invoice:4321   # you checked: it was this order
+hunter-retention registrations reject 12            # spam or not a customer
+```
+
+Hold reasons: `registration_no_account` (no customer with that email or domain, often a distributor sale),
+`registration_ambiguous_account` (several customer records share the domain), `registration_no_pen_order`,
+`registration_no_lot_recorded` (the usual one: nothing written on the invoice), `registration_unknown_lot`
+(a code that is not in the registry, check for a typo), `registration_lot_incomplete` (no use-by date or
+no certificate link), `registration_lot_product_mismatch`.
+

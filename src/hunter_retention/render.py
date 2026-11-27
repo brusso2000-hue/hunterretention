@@ -99,6 +99,8 @@ class Renderer:
             "tech_url": self.content.get("links", {}).get("technical", ""),
             "resources_url": self.content.get("links", {}).get("resources", ""),
             "guides_url": self.content.get("links", {}).get("guides", ""),
+            # Pen registration emails: the recorded lot(s) for the registrant's order. Empty for other flows.
+            "reg": (track.get("order_summary") or {}).get("registration") or {},
         }
 
     def render(self, track: dict, touch_key: str) -> Rendered:

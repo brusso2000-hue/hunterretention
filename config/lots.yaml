@@ -1,0 +1,26 @@
+# Lot registry. One entry per inbound shipment of plating pens.
+#
+# A lot number goes on a Certificate of Conformance, so every field here has to be true and backed by
+# paperwork you keep. The registration emails use a lot ONLY when:
+#   1. it is listed here with a use_by date and a certificate document, and
+#   2. the same code is written on the customer's QuickBooks order
+#      (in the pen line's description, e.g. "24K Gold Pen  Lot HP-2611-G24", or in a custom field named "Lot").
+# If either is missing, the registration is held for a person and nothing is sent. A lot is never guessed.
+#
+# Fields
+#   code      your lot number for this shipment. Letters, digits and dashes.
+#   skus      the items that arrived in this shipment (QuickBooks SKUs). Leave empty to allow any pen.
+#   received  the day the shipment was received and put into stock.
+#   use_by    the last day these pens should be used.
+#   coc_url   link to the Certificate of Conformance for this lot (a PDF you issued and can stand behind).
+#   note      internal only, never sent to customers (your receiving paperwork reference).
+#
+# Example (remove the leading # and fill in real values):
+#   - code: "HP-2611-G24"
+#     skus: ["PL-1003"]
+#     received: 2026-11-11
+#     use_by: 2027-11-11
+#     coc_url: "https://hunterproducts.com/coc/HP-2611-G24.pdf"
+#     note: ""
+
+lots: []
