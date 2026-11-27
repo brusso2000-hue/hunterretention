@@ -36,8 +36,8 @@
 # Use-by is 12 months after manufacture. Lot code = L + manufacture date + last two digits of the part number.
 # ships_from 2026-11-27: on that day Brandon stated every pen in stock is from this batch, so orders
 # shipping from then on are from these lots. Orders shipped earlier are not covered and are held.
-# coc_url is empty until the signed certificate for each lot is published. Until then a registration
-# for one of these lots is held, not sent.
+# Certificates: issued in the company name with no personal signature, approved by Brandon Russo and
+# published at hunterproducts.com/coc/ on 2026-11-27.
 lots:
   - code: "L2026102002"      # Absorbent/Degreaser Pen
     skus: ["PL-1002"]
@@ -46,7 +46,7 @@ lots:
     ships_from: 2026-11-27
     ships_until:
     use_by: 2027-10-20
-    coc_url: ""
+    coc_url: "https://hunterproducts.com/coc/L2026102002.pdf"
   - code: "L2026102003"      # 24K Gold Plating Pen
     skus: ["PL-1003"]
     made: 2026-10-20
@@ -54,7 +54,7 @@ lots:
     ships_from: 2026-11-27
     ships_until:
     use_by: 2027-10-20
-    coc_url: ""
+    coc_url: "https://hunterproducts.com/coc/L2026102003.pdf"
   - code: "L2026102004"      # 18K Gold Plating Pen
     skus: ["PL-1004"]
     made: 2026-10-20
@@ -62,7 +62,7 @@ lots:
     ships_from: 2026-11-27
     ships_until:
     use_by: 2027-10-20
-    coc_url: ""
+    coc_url: "https://hunterproducts.com/coc/L2026102004.pdf"
   - code: "L2026102005"      # 14K Gold Plating Pen
     skus: ["PL-1005"]
     made: 2026-10-20
@@ -70,7 +70,7 @@ lots:
     ships_from: 2026-11-27
     ships_until:
     use_by: 2027-10-20
-    coc_url: ""
+    coc_url: "https://hunterproducts.com/coc/L2026102005.pdf"
   - code: "L2026102006"      # Nickel Plating Pen
     skus: ["PL-1006"]
     made: 2026-10-20
@@ -78,7 +78,7 @@ lots:
     ships_from: 2026-11-27
     ships_until:
     use_by: 2027-10-20
-    coc_url: ""
+    coc_url: "https://hunterproducts.com/coc/L2026102006.pdf"
   - code: "L2026102007"      # Black Nickel Plating Pen
     skus: ["PL-1007"]
     made: 2026-10-20
@@ -86,7 +86,7 @@ lots:
     ships_from: 2026-11-27
     ships_until:
     use_by: 2027-10-20
-    coc_url: ""
+    coc_url: "https://hunterproducts.com/coc/L2026102007.pdf"
   - code: "L2026102008"      # Silver Plating Pen
     skus: ["PL-1008"]
     made: 2026-10-20
@@ -94,7 +94,7 @@ lots:
     ships_from: 2026-11-27
     ships_until:
     use_by: 2027-10-20
-    coc_url: ""
+    coc_url: "https://hunterproducts.com/coc/L2026102008.pdf"
   - code: "L2026102009"      # Chrome Color Plating Pen
     skus: ["PL-1009"]
     made: 2026-10-20
@@ -102,7 +102,7 @@ lots:
     ships_from: 2026-11-27
     ships_until:
     use_by: 2027-10-20
-    coc_url: ""
+    coc_url: "https://hunterproducts.com/coc/L2026102009.pdf"
   - code: "L2026102010"      # Copper Plating Pen
     skus: ["PL-1010"]
     made: 2026-10-20
@@ -110,7 +110,7 @@ lots:
     ships_from: 2026-11-27
     ships_until:
     use_by: 2027-10-20
-    coc_url: ""
+    coc_url: "https://hunterproducts.com/coc/L2026102010.pdf"
   - code: "L2026102012"      # Tin Plating Pen
     skus: ["PL-1012"]
     made: 2026-10-20
@@ -118,7 +118,7 @@ lots:
     ships_from: 2026-11-27
     ships_until:
     use_by: 2027-10-20
-    coc_url: ""
+    coc_url: "https://hunterproducts.com/coc/L2026102012.pdf"
   - code: "L2026102013"      # Zinc Plating Pen
     skus: ["PL-1013"]
     made: 2026-10-20
@@ -126,7 +126,7 @@ lots:
     ships_from: 2026-11-27
     ships_until:
     use_by: 2027-10-20
-    coc_url: ""
+    coc_url: "https://hunterproducts.com/coc/L2026102013.pdf"
   - code: "L2026102014"      # Stainless Steel Degreaser Pen
     skus: ["PL-1014"]
     made: 2026-10-20
@@ -134,7 +134,7 @@ lots:
     ships_from: 2026-11-27
     ships_until:
     use_by: 2027-10-20
-    coc_url: ""
+    coc_url: "https://hunterproducts.com/coc/L2026102014.pdf"
   - code: "L2026102015"      # Palladium Plating Pen
     skus: ["PL-1015"]
     made: 2026-10-20
@@ -142,7 +142,7 @@ lots:
     ships_from: 2026-11-27
     ships_until:
     use_by: 2027-10-20
-    coc_url: ""
+    coc_url: "https://hunterproducts.com/coc/L2026102015.pdf"
   - code: "L2026102016"      # 24K Gold Heavy Duty Plating Pen
     skus: ["PL-1016"]
     made: 2026-10-20
@@ -150,7 +150,7 @@ lots:
     ships_from: 2026-11-27
     ships_until:
     use_by: 2027-10-20
-    coc_url: ""
+    coc_url: "https://hunterproducts.com/coc/L2026102016.pdf"
   - code: "L2026102017"      # 18K Gold Heavy Duty Plating Pen
     skus: ["PL-1017"]
     made: 2026-10-20
@@ -158,7 +158,7 @@ lots:
     ships_from: 2026-11-27
     ships_until:
     use_by: 2027-10-20
-    coc_url: ""
+    coc_url: "https://hunterproducts.com/coc/L2026102017.pdf"
   - code: "L2026102018"      # Silver Heavy Duty Plating Pen
     skus: ["PL-1018"]
     made: 2026-10-20
@@ -166,7 +166,7 @@ lots:
     ships_from: 2026-11-27
     ships_until:
     use_by: 2027-10-20
-    coc_url: ""
+    coc_url: "https://hunterproducts.com/coc/L2026102018.pdf"
   - code: "L2026102019"      # Copper Heavy Duty Plating Pen
     skus: ["PL-1019"]
     made: 2026-10-20
@@ -174,7 +174,7 @@ lots:
     ships_from: 2026-11-27
     ships_until:
     use_by: 2027-10-20
-    coc_url: ""
+    coc_url: "https://hunterproducts.com/coc/L2026102019.pdf"
   - code: "L2026102020"      # Nickel Heavy Duty Plating Pen
     skus: ["PL-1020"]
     made: 2026-10-20
@@ -182,4 +182,4 @@ lots:
     ships_from: 2026-11-27
     ships_until:
     use_by: 2027-10-20
-    coc_url: ""
+    coc_url: "https://hunterproducts.com/coc/L2026102020.pdf"
